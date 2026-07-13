@@ -1,0 +1,2002 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="navy">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<title>KLIN — Personal Command Center</title>
+
+<!-- ============================= PWA / iOS Home Screen Meta ============================= -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KLIN">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0A0F1E">
+<meta name="description" content="KLIN — offline-first personal command center for projects, tasks, finances, credentials, alarms and hydration.">
+<link id="appleTouchIcon" rel="apple-touch-icon" href="">
+<link id="manifestLink" rel="manifest" href="">
+
+<!-- ============================= External CDN Assets ============================= -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  /* ===================================================================================
+     DESIGN TOKENS
+     Five selectable themes, swapped via [data-theme] on <html>.
+     "navy" / "oled" / "charcoal" / "slate" are dark, richer than v1 with gradient
+     atmosphere + glass surfaces. "aurora" is a bright, soft light theme.
+     =================================================================================== */
+  :root{
+    --font-display:'Sora',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+    --radius:16px;
+  }
+  html[data-theme="navy"]{
+    --bg:#0A0F1E; --surface-rgb:17,26,46; --surface-a:.72; --surface-2:#16213A; --border:#22304F;
+    --accent:#3B82F6; --accent-2:#8B5CF6; --accent-rgb:59,130,246; --accent2-rgb:139,92,246;
+    --text:#E7ECF6; --text-dim:#8B97B4; --danger:#F87171; --success:#34D399;
+  }
+  html[data-theme="oled"]{
+    --bg:#000000; --surface-rgb:14,14,14; --surface-a:.82; --surface-2:#141414; --border:#242424;
+    --accent:#10B981; --accent-2:#22D3EE; --accent-rgb:16,185,129; --accent2-rgb:34,211,238;
+    --text:#EDEDED; --text-dim:#8A8A8A; --danger:#F87171; --success:#34D399;
+  }
+  html[data-theme="charcoal"]{
+    --bg:#18171C; --surface-rgb:33,31,39; --surface-a:.78; --surface-2:#2A2732; --border:#38343F;
+    --accent:#A78BFA; --accent-2:#F472B6; --accent-rgb:167,139,250; --accent2-rgb:244,114,182;
+    --text:#EDEBF2; --text-dim:#9A93A8; --danger:#F87171; --success:#34D399;
+  }
+  html[data-theme="slate"]{
+    --bg:#151B26; --surface-rgb:29,37,48; --surface-a:.76; --surface-2:#252F3D; --border:#334053;
+    --accent:#F59E0B; --accent-2:#FB7185; --accent-rgb:245,158,11; --accent2-rgb:251,113,133;
+    --text:#EAEEF5; --text-dim:#8D99AC; --danger:#F87171; --success:#34D399;
+  }
+  html[data-theme="aurora"]{
+    --bg:#F3F5FC; --surface-rgb:255,255,255; --surface-a:.72; --surface-2:#EAEDF9; --border:#DBE0F0;
+    --accent:#6D5EF0; --accent-2:#EC4899; --accent-rgb:109,94,240; --accent2-rgb:236,72,153;
+    --text:#1B1F2D; --text-dim:#666F87; --danger:#DC2626; --success:#059669;
+  }
+
+  *{ -webkit-tap-highlight-color:transparent; }
+  html,body{ background:var(--bg); color:var(--text); font-family:var(--font-body); scroll-behavior:smooth; overscroll-behavior:none; }
+  h1,h2,h3,.font-display{ font-family:var(--font-display); }
+  .font-mono{ font-family:var(--font-mono); }
+
+  /* Ambient gradient mesh behind everything — the "not boring" atmosphere layer */
+  .mesh-bg{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+  .mesh-bg::before, .mesh-bg::after{
+    content:''; position:absolute; width:60vmax; height:60vmax; border-radius:50%; filter:blur(90px);
+    opacity:.16;
+  }
+  .mesh-bg::before{ background:var(--accent); top:-20vmax; left:-15vmax; }
+  .mesh-bg::after{ background:var(--accent-2); bottom:-25vmax; right:-15vmax; opacity:.13; }
+  html[data-theme="aurora"] .mesh-bg::before, html[data-theme="aurora"] .mesh-bg::after{ opacity:.22; }
+
+  .bg-surface{ background:var(--surface-2); }
+  .bg-surface-2{ background:var(--surface-2); }
+  .border-token{ border-color:var(--border); }
+  .text-dim{ color:var(--text-dim); }
+  .text-accent{ color:var(--accent); }
+  .bg-accent{ background:var(--accent); }
+  .ring-accent{ --tw-ring-color:var(--accent); }
+
+  /* Signature element: pulsing "system status" node */
+  .pulse-node{ position:relative; width:10px; height:10px; border-radius:999px; background:var(--accent); box-shadow:0 0 10px 1px var(--accent); }
+  .pulse-node::after{
+    content:''; position:absolute; inset:-6px; border-radius:999px;
+    border:1px solid var(--accent); opacity:.6; animation:pulseRing 2.2s ease-out infinite;
+  }
+  @keyframes pulseRing{ 0%{ transform:scale(.6); opacity:.7;} 100%{ transform:scale(2.1); opacity:0;} }
+
+  /* Glass card */
+  .card{
+    background:rgba(var(--surface-rgb), var(--surface-a));
+    backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+    border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px -12px rgba(0,0,0,.35);
+    transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  .card:hover{ box-shadow:0 16px 40px -14px rgba(0,0,0,.45), 0 0 0 1px rgba(var(--accent-rgb),.15); }
+  .card-2{ background:var(--surface-2); border:1px solid var(--border); border-radius:12px; }
+  .card-glow{ position:relative; }
+  .card-glow::before{
+    content:''; position:absolute; inset:-1px; border-radius:inherit; padding:1px;
+    background:linear-gradient(135deg, rgba(var(--accent-rgb),.55), transparent 40%, rgba(var(--accent2-rgb),.4));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none;
+  }
+
+  /* Buttons */
+  .btn-accent{ background:linear-gradient(135deg, var(--accent), var(--accent-2)); color:#0a0a0a; font-weight:600; transition:filter .15s, transform .1s, box-shadow .2s; box-shadow:0 6px 18px -6px rgba(var(--accent-rgb),.55); }
+  html[data-theme="aurora"] .btn-accent{ color:#fff; }
+  .btn-accent:hover{ filter:brightness(1.08); box-shadow:0 8px 22px -6px rgba(var(--accent-rgb),.7); }
+  .btn-accent:active{ transform:scale(.97); }
+  .btn-ghost{ background:transparent; border:1px solid var(--border); color:var(--text); transition:background .15s, border-color .15s; }
+  .btn-ghost:hover{ background:var(--surface-2); border-color:rgba(var(--accent-rgb),.4); }
+
+  /* Nav item */
+  .nav-item{ display:flex; align-items:center; gap:.75rem; padding:.65rem .9rem; border-radius:12px; color:var(--text-dim); font-weight:500; transition:all .15s; cursor:pointer; }
+  .nav-item:hover{ background:var(--surface-2); color:var(--text); }
+  .nav-item.active{ background:linear-gradient(90deg, rgba(var(--accent-rgb),.2), rgba(var(--accent-rgb),.02)); color:var(--text); box-shadow:inset 3px 0 0 var(--accent); }
+
+  /* View transition */
+  .view{ display:none; animation:fadeSlideIn .4s cubic-bezier(.16,1,.3,1) both; }
+  .view.active{ display:block; }
+  @keyframes fadeSlideIn{ from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);} }
+  .stagger > *{ animation:fadeSlideIn .45s cubic-bezier(.16,1,.3,1) both; }
+  .stagger > *:nth-child(1){animation-delay:.02s} .stagger > *:nth-child(2){animation-delay:.06s}
+  .stagger > *:nth-child(3){animation-delay:.10s} .stagger > *:nth-child(4){animation-delay:.14s}
+  .stagger > *:nth-child(5){animation-delay:.18s} .stagger > *:nth-child(6){animation-delay:.22s}
+
+  /* Progress bar */
+  .progress-track{ background:var(--surface-2); border:1px solid var(--border); border-radius:999px; overflow:hidden; }
+  .progress-fill{ height:100%; background:linear-gradient(90deg, var(--accent), var(--accent-2)); transition:width .6s cubic-bezier(.4,0,.2,1); }
+  .progress-fill.complete{ background:linear-gradient(90deg,#34D399,#6EE7B7); box-shadow:0 0 14px 1px rgba(52,211,153,.7); }
+
+  /* Water gauge */
+  .gauge-wrap{ position:relative; width:190px; height:190px; margin:0 auto; }
+  .gauge-wrap svg{ transform:rotate(-90deg); }
+  .gauge-bg{ fill:none; stroke:var(--surface-2); stroke-width:12; }
+  .gauge-fg{ fill:none; stroke:url(#gaugeGradient); stroke-width:12; stroke-linecap:round; transition:stroke-dashoffset .6s cubic-bezier(.4,0,.2,1); }
+
+  /* Checkbox custom */
+  input[type="checkbox"].chk{ appearance:none; width:20px; height:20px; border:2px solid var(--border); border-radius:6px; display:inline-grid; place-content:center; cursor:pointer; flex-shrink:0; background:var(--surface-2); transition:transform .1s; }
+  input[type="checkbox"].chk::after{ content:''; width:11px; height:11px; border-radius:3px; transform:scale(0); transition:.15s transform cubic-bezier(.34,1.56,.64,1); background:var(--accent); }
+  input[type="checkbox"].chk:checked::after{ transform:scale(1); }
+  input[type="checkbox"].chk:checked{ border-color:var(--accent); }
+  input[type="checkbox"].chk:active{ transform:scale(.9); }
+
+  /* Toggle switch */
+  .toggle{ position:relative; width:42px; height:24px; border-radius:999px; background:var(--surface-2); border:1px solid var(--border); cursor:pointer; flex-shrink:0; transition:background .2s; }
+  .toggle::after{ content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:999px; background:var(--text-dim); transition:transform .2s, background .2s; }
+  .toggle.on{ background:rgba(var(--accent-rgb),.35); border-color:var(--accent); }
+  .toggle.on::after{ transform:translateX(18px); background:var(--accent); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb{ background:var(--border); border-radius:99px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+
+  /* Bottom mobile nav */
+  .bottom-nav{ background:rgba(var(--surface-rgb), .92); backdrop-filter:blur(16px); border-top:1px solid var(--border); }
+  .bottom-item{ color:var(--text-dim); transition:color .15s, transform .15s; }
+  .bottom-item.active{ color:var(--accent); transform:translateY(-2px); }
+
+  /* Toast */
+  #toastHost{ position:fixed; top:1rem; right:1rem; z-index:9999; display:flex; flex-direction:column; gap:.5rem; }
+  .toast{ background:rgba(var(--surface-rgb),.96); backdrop-filter:blur(10px); border:1px solid var(--border); border-left:4px solid var(--accent); border-radius:10px; padding:.75rem 1rem; min-width:240px; max-width:340px; box-shadow:0 10px 30px rgba(0,0,0,.4); animation:toastIn .25s cubic-bezier(.34,1.56,.64,1) both; font-size:.875rem; }
+  .toast.danger{ border-left-color:var(--danger); }
+  @keyframes toastIn{ from{opacity:0; transform:translateX(24px) scale(.96);} to{opacity:1; transform:translateX(0) scale(1);} }
+
+  /* Login gateway */
+  #loginGate{ position:fixed; inset:0; z-index:9998; background:var(--bg); display:flex; align-items:center; justify-content:center; }
+  #loginGate.hidden{ display:none !important; }
+  .gate-grid{ background-image:linear-gradient(rgba(var(--accent-rgb),.08) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--accent-rgb),.08) 1px, transparent 1px); background-size:34px 34px; }
+
+  .badge-dev{ background:rgba(var(--accent-rgb),.15); color:var(--accent); }
+  .badge-complete{ background:rgba(52,211,153,.15); color:#34D399; box-shadow:0 0 12px rgba(52,211,153,.35); }
+  .badge-income{ background:rgba(52,211,153,.15); color:#34D399; }
+  .badge-expense{ background:rgba(248,113,113,.15); color:#F87171; }
+
+  input.field, textarea.field, select.field{ background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:.6rem .85rem; width:100%; outline:none; transition:border-color .15s, box-shadow .15s; }
+  input.field:focus, textarea.field:focus, select.field:focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(var(--accent-rgb),.15); }
+  input.field::placeholder, textarea.field::placeholder{ color:var(--text-dim); }
+
+  a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
+  }
+
+  .theme-swatch{ width:38px; height:38px; border-radius:12px; cursor:pointer; border:2px solid transparent; transition:transform .15s; }
+  .theme-swatch:hover{ transform:translateY(-2px); }
+  .theme-swatch.active{ border-color:var(--text); }
+
+  /* Ringing overlay */
+  #ringOverlay{ position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,.85); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; }
+  #ringOverlay.hidden{ display:none; }
+  .ring-icon{ animation:ringShake 1s ease-in-out infinite; }
+  @keyframes ringShake{ 0%,100%{ transform:rotate(0);} 10%{transform:rotate(-14deg);} 20%{transform:rotate(12deg);} 30%{transform:rotate(-10deg);} 40%{transform:rotate(8deg);} 50%{transform:rotate(-4deg);} 60%{transform:rotate(0);} }
+
+  /* Count-up numbers */
+  .count-num{ font-variant-numeric:tabular-nums; }
+
+  /* Dynamic row */
+  .dyn-row{ animation:fadeSlideIn .25s ease both; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="mesh-bg" aria-hidden="true"></div>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="var(--accent)"></stop>
+      <stop offset="100%" stop-color="var(--accent-2)"></stop>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div id="toastHost"></div>
+
+<!-- ============================= RINGING OVERLAY (alarms / reminders / tasks / water) ============================= -->
+<div id="ringOverlay" class="hidden">
+  <div class="card p-8 w-[90%] max-w-sm text-center">
+    <i class="fa-solid fa-bell ring-icon text-5xl text-accent mb-4"></i>
+    <p class="text-dim text-xs uppercase tracking-widest font-mono mb-1" id="ringKind">Alarm</p>
+    <h3 class="font-display text-xl font-bold mb-6" id="ringLabel">—</h3>
+    <div class="flex gap-3">
+      <button id="ringSnoozeBtn" class="btn-ghost flex-1 py-2.5 rounded-xl text-sm"><i class="fa-solid fa-clock mr-1"></i><span data-i18n="snooze">Snooze 5m</span></button>
+      <button id="ringDismissBtn" class="btn-accent flex-1 py-2.5 rounded-xl text-sm"><i class="fa-solid fa-check mr-1"></i><span data-i18n="dismiss">Dismiss</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= LOGIN GATEWAY ============================= -->
+<div id="loginGate">
+  <div class="gate-grid absolute inset-0 opacity-60 pointer-events-none"></div>
+  <div class="card relative z-10 w-[92%] max-w-sm p-8">
+    <div class="flex items-center gap-3 mb-1">
+      <div class="pulse-node"></div>
+      <span class="text-xs text-dim tracking-widest uppercase font-mono" data-i18n="systemStatus">System Standby</span>
+    </div>
+    <h1 class="font-display text-2xl font-bold mt-3 mb-1" data-i18n="gateTitle">Secure Access</h1>
+    <p class="text-dim text-sm mb-6" data-i18n="gateSubtitle">Enter your authorized access ID to continue.</p>
+
+    <label class="text-xs text-dim mb-1 block" data-i18n="accessIdLabel">Access ID</label>
+    <input id="loginId" class="field mb-4" type="text" autocomplete="off" placeholder="admin">
+
+    <label class="flex items-center gap-2 mb-6 cursor-pointer select-none">
+      <input id="rememberMe" type="checkbox" class="chk">
+      <span class="text-sm text-dim" data-i18n="rememberSession">Remember this session</span>
+    </label>
+
+    <button id="loginBtn" class="btn-accent w-full py-2.5 rounded-xl" data-i18n="loginBtn">Log In</button>
+    <p id="loginError" class="text-xs mt-3 hidden" style="color:var(--danger)" data-i18n="loginError">Access ID not recognized.</p>
+
+    <div class="flex items-center justify-between mt-6">
+      <button id="gateLangToggle" class="text-xs text-dim font-mono flex items-center gap-1">
+        <i class="fa-solid fa-globe"></i> <span id="gateLangLabel">EN / UZ</span>
+      </button>
+      <span class="text-[11px] text-dim font-mono" data-i18n="masterHint">default: admin</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= APP SHELL ============================= -->
+<div id="appShell" class="hidden min-h-screen md:flex relative z-10">
+
+  <!-- ===== Desktop Sidebar ===== -->
+  <aside class="hidden md:flex md:flex-col w-64 shrink-0 border-r border-token bg-surface sticky top-0 h-screen">
+    <div class="p-5 border-b border-token">
+      <div class="flex items-center gap-2">
+        <div class="pulse-node"></div>
+        <span class="font-display font-bold text-lg tracking-tight">KLIN</span>
+      </div>
+      <p class="text-[11px] text-dim font-mono mt-1" id="clockLine">--:--:--</p>
+    </div>
+    <nav class="flex-1 overflow-y-auto p-3 space-y-1" id="sidebarNav"></nav>
+    <div class="p-3 border-t border-token">
+      <button id="logoutBtn" class="nav-item w-full">
+        <i class="fa-solid fa-arrow-right-from-bracket w-4"></i>
+        <span data-i18n="logout">Log out</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ===== Main Content ===== -->
+  <main class="flex-1 min-w-0 pb-24 md:pb-0">
+    <!-- Mobile top bar -->
+    <div class="md:hidden sticky top-0 z-40 bg-surface border-b border-token px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="pulse-node"></div>
+        <span class="font-display font-bold">KLIN</span>
+      </div>
+      <button id="mobileMenuBtn" class="btn-ghost w-9 h-9 rounded-lg"><i class="fa-solid fa-bars"></i></button>
+    </div>
+
+    <!-- Mobile slide-down menu (remaining nav items + settings/logout) -->
+    <div id="mobileMenu" class="md:hidden hidden bg-surface border-b border-token px-4 py-3 space-y-1"></div>
+
+    <div class="p-4 md:p-8 max-w-6xl mx-auto">
+
+      <!-- ================= DASHBOARD ================= -->
+      <section id="view-dashboard" class="view">
+        <header class="mb-6">
+          <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="dashTitle">Dashboard</h2>
+          <p class="text-dim text-sm mt-1" data-i18n="dashSubtitle">A snapshot of everything in motion.</p>
+        </header>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 stagger" id="statGrid"></div>
+
+        <div class="grid md:grid-cols-2 gap-4 mt-6">
+          <div class="card p-5">
+            <h3 class="font-display font-semibold mb-3" data-i18n="upcomingReminders">Upcoming Reminders</h3>
+            <div id="dashReminders" class="space-y-2 text-sm"></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-display font-semibold mb-3" data-i18n="activeProjectsList">Active Projects</h3>
+            <div id="dashProjects" class="space-y-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TASKS ================= -->
+      <section id="view-tasks" class="view">
+        <header class="mb-6">
+          <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="tasksTitle">To-Do Matrix</h2>
+          <p class="text-dim text-sm mt-1" data-i18n="tasksSubtitle">Add, toggle, filter — and set an alarm for anything time-critical.</p>
+        </header>
+        <div class="card p-4 md:p-5">
+          <div class="grid md:grid-cols-[1fr_auto_auto] gap-2 mb-4">
+            <input id="taskInput" class="field" type="text" data-i18n-ph="taskPlaceholder" placeholder="What needs doing?">
+            <input id="taskAlarmInput" class="field" type="datetime-local" title="Optional alarm">
+            <button id="taskAddBtn" class="btn-accent px-4 rounded-xl shrink-0"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <div class="flex gap-2 mb-4 text-sm flex-wrap" id="taskFilters">
+            <button data-filter="all" class="filter-btn btn-ghost px-3 py-1 rounded-lg" data-i18n="filterAll">All</button>
+            <button data-filter="active" class="filter-btn btn-ghost px-3 py-1 rounded-lg" data-i18n="filterActive">Active</button>
+            <button data-filter="completed" class="filter-btn btn-ghost px-3 py-1 rounded-lg" data-i18n="filterCompleted">Completed</button>
+            <button id="clearCompletedBtn" class="ml-auto text-xs text-dim hover:text-red-400" data-i18n="clearCompleted">Clear completed</button>
+          </div>
+          <div id="taskList" class="space-y-2"></div>
+          <p id="taskEmpty" class="text-dim text-sm text-center py-6 hidden" data-i18n="noTasks">No tasks yet — add your first one above.</p>
+        </div>
+      </section>
+
+      <!-- ================= PROJECTS ================= -->
+      <section id="view-projects" class="view">
+        <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="projectsTitle">Project Phases</h2>
+            <p class="text-dim text-sm mt-1" data-i18n="projectsSubtitle">Track live progress across every build.</p>
+          </div>
+          <input id="projectSearch" class="field max-w-xs" type="text" data-i18n-ph="searchPlaceholder" placeholder="Search projects...">
+        </header>
+
+        <div class="card p-4 md:p-5 mb-5">
+          <input id="newProjectName" class="field mb-3" type="text" data-i18n-ph="projectNamePlaceholder" placeholder="Project name">
+          <label class="text-xs text-dim mb-2 block" data-i18n="phasesLabel">Phases</label>
+          <div id="phaseInputRows" class="space-y-2 mb-2"></div>
+          <button id="addPhaseRowBtn" class="text-xs text-accent hover:underline mb-3"><i class="fa-solid fa-plus mr-1"></i><span data-i18n="addPhase">Add another phase</span></button>
+          <button id="addProjectBtn" class="btn-accent block px-4 py-2 rounded-xl text-sm"><i class="fa-solid fa-floppy-disk mr-1"></i><span data-i18n="createProject">Save project</span></button>
+        </div>
+
+        <div id="projectList" class="space-y-4 stagger"></div>
+        <p id="projectEmpty" class="text-dim text-sm text-center py-6 hidden" data-i18n="noProjects">No projects yet — create one above.</p>
+      </section>
+
+      <!-- ================= WATER ================= -->
+      <section id="view-water" class="view">
+        <header class="mb-6">
+          <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="waterTitle">Hydration Log</h2>
+          <p class="text-dim text-sm mt-1" data-i18n="waterSubtitle">Resets automatically at the start of each day.</p>
+        </header>
+        <div class="card p-6 md:p-8 flex flex-col items-center">
+          <div class="gauge-wrap">
+            <svg width="190" height="190" viewBox="0 0 190 190">
+              <circle class="gauge-bg" cx="95" cy="95" r="82"></circle>
+              <circle class="gauge-fg" id="gaugeFg" cx="95" cy="95" r="82" stroke-dasharray="515" stroke-dashoffset="515"></circle>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="waterMlLabel" class="font-display text-2xl font-bold count-num">0</span>
+              <span class="text-dim text-xs font-mono" id="waterTargetLabel">/ 2000 ml</span>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-3 mt-6 justify-center">
+            <button class="water-add btn-ghost px-4 py-2 rounded-xl text-sm" data-ml="250"><i class="fa-solid fa-droplet mr-1"></i>+250ml</button>
+            <button class="water-add btn-ghost px-4 py-2 rounded-xl text-sm" data-ml="240"><i class="fa-solid fa-mug-hot mr-1"></i>+1 <span data-i18n="cup">Cup</span></button>
+            <button class="water-add btn-ghost px-4 py-2 rounded-xl text-sm" data-ml="500"><i class="fa-solid fa-bottle-water mr-1"></i>+500ml</button>
+            <button id="waterResetBtn" class="btn-ghost px-4 py-2 rounded-xl text-sm text-red-300"><i class="fa-solid fa-rotate-left mr-1"></i><span data-i18n="reset">Reset</span></button>
+          </div>
+          <div class="w-full max-w-xs mt-6">
+            <label class="text-xs text-dim block mb-1" data-i18n="dailyTarget">Daily target (ml)</label>
+            <input id="waterTargetInput" type="number" class="field" min="250" step="250" value="2000">
+          </div>
+
+          <div class="w-full max-w-xs mt-6 pt-6 border-t border-token">
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-sm" data-i18n="waterAlarmLabel">Drink-water alarm</label>
+              <div class="toggle" id="waterAlarmToggle"></div>
+            </div>
+            <label class="text-xs text-dim block mb-1" data-i18n="everyHours">Remind me every (hours)</label>
+            <input id="waterAlarmInterval" type="number" class="field mb-2" min="1" max="12" value="2">
+            <label class="text-xs text-dim block mb-1" data-i18n="ringtoneLabel">Ringtone</label>
+            <select id="waterAlarmTone" class="field"></select>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= ALARMS ================= -->
+      <section id="view-alarms" class="view">
+        <header class="mb-6">
+          <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="alarmsTitle">Alarms</h2>
+          <p class="text-dim text-sm mt-1" data-i18n="alarmsSubtitle">Real ringing alarms with your own uploaded tones.</p>
+        </header>
+
+        <div class="card p-4 md:p-5 mb-5">
+          <h3 class="font-display font-semibold mb-3" data-i18n="ringtoneLibrary">Ringtone Library</h3>
+          <div class="flex flex-wrap items-center gap-3 mb-3">
+            <button id="uploadRingtoneBtn" class="btn-ghost px-4 py-2 rounded-xl text-sm"><i class="fa-solid fa-upload mr-1"></i><span data-i18n="uploadRingtone">Upload sound file</span></button>
+            <input id="ringtoneFile" type="file" accept="audio/*" class="hidden">
+            <span class="text-xs text-dim" data-i18n="ringtoneHint">MP3 / WAV / OGG — stored on this device only.</span>
+          </div>
+          <div id="ringtoneList" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <div class="card p-4 md:p-5 mb-5">
+          <div class="grid md:grid-cols-2 gap-3 mb-3">
+            <input id="alarmLabel" class="field" type="text" data-i18n-ph="alarmLabelPlaceholder" placeholder="Label (e.g. Wake up)">
+            <input id="alarmTime" class="field" type="time">
+          </div>
+          <div class="flex flex-wrap gap-2 mb-3" id="alarmDayPicker"></div>
+          <div class="grid md:grid-cols-[1fr_auto] gap-3">
+            <select id="alarmTone" class="field"></select>
+            <button id="addAlarmBtn" class="btn-accent px-4 py-2 rounded-xl text-sm"><i class="fa-solid fa-bell mr-1"></i><span data-i18n="setAlarm">Set alarm</span></button>
+          </div>
+          <p class="text-xs text-dim mt-2" data-i18n="alarmDaysHint">No days selected = rings once at the next occurrence of that time.</p>
+        </div>
+
+        <div id="alarmList" class="space-y-3"></div>
+        <p id="alarmEmpty" class="text-dim text-sm text-center py-6 hidden" data-i18n="noAlarms">No alarms set.</p>
+      </section>
+
+      <!-- ================= REMINDERS ================= -->
+      <section id="view-reminders" class="view">
+        <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="remindersTitle">Reminders &amp; Countdowns</h2>
+            <p class="text-dim text-sm mt-1" data-i18n="remindersSubtitle">Sorted chronologically, updating live.</p>
+          </div>
+          <input id="reminderSearch" class="field max-w-xs" type="text" data-i18n-ph="searchPlaceholder" placeholder="Search reminders...">
+        </header>
+
+        <div class="card p-4 md:p-5 mb-5">
+          <div class="grid md:grid-cols-[1fr_auto_auto] gap-3">
+            <input id="reminderTitle" class="field" type="text" data-i18n-ph="reminderTitlePlaceholder" placeholder="Reminder title">
+            <input id="reminderDate" class="field" type="datetime-local">
+            <button id="addReminderBtn" class="btn-accent px-4 py-2 rounded-xl text-sm"><i class="fa-solid fa-bell mr-1"></i><span data-i18n="addReminder">Add</span></button>
+          </div>
+          <p class="text-xs text-dim mt-2" data-i18n="notifyHint">Add KLIN to your Home Screen to receive alerts even when the browser tab isn't focused.</p>
+          <button id="enableNotifsBtn" class="btn-ghost mt-2 px-3 py-1.5 rounded-lg text-xs"><i class="fa-regular fa-bell mr-1"></i><span data-i18n="enableNotifs">Enable notifications</span></button>
+        </div>
+
+        <div id="reminderList" class="space-y-3"></div>
+        <p id="reminderEmpty" class="text-dim text-sm text-center py-6 hidden" data-i18n="noReminders">No reminders scheduled.</p>
+      </section>
+
+      <!-- ================= FINANCE ================= -->
+      <section id="view-finance" class="view">
+        <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="financeTitle">Accounts</h2>
+            <p class="text-dim text-sm mt-1" data-i18n="financeSubtitle">Track what you have and what you spend.</p>
+          </div>
+          <input id="financeSearch" class="field max-w-xs" type="text" data-i18n-ph="searchPlaceholder" placeholder="Search transactions...">
+        </header>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          <div class="card p-5">
+            <p class="text-dim text-xs uppercase tracking-wide mb-1" data-i18n="balance">Balance</p>
+            <p class="font-display text-2xl font-bold count-num" id="financeBalance">₹0</p>
+          </div>
+          <div class="card p-5">
+            <p class="text-dim text-xs uppercase tracking-wide mb-1" data-i18n="totalIncome">Total Income</p>
+            <p class="font-display text-2xl font-bold count-num" style="color:#34D399" id="financeIncome">₹0</p>
+          </div>
+          <div class="card p-5">
+            <p class="text-dim text-xs uppercase tracking-wide mb-1" data-i18n="totalExpense">Total Spent</p>
+            <p class="font-display text-2xl font-bold count-num" style="color:#F87171" id="financeExpense">₹0</p>
+          </div>
+        </div>
+
+        <div class="card p-4 md:p-5 mb-5">
+          <div class="grid md:grid-cols-[auto_1fr_1fr_auto_auto] gap-2">
+            <select id="financeType" class="field md:w-32">
+              <option value="income" data-i18n="income">Income</option>
+              <option value="expense" data-i18n="expense">Expense</option>
+            </select>
+            <input id="financeAmount" class="field" type="number" min="0" step="1" data-i18n-ph="amountPlaceholder" placeholder="Amount (₹)">
+            <input id="financeLabel" class="field" type="text" data-i18n-ph="labelPlaceholder" placeholder="Label / category">
+            <input id="financeDate" class="field" type="date">
+            <button id="addFinanceBtn" class="btn-accent px-4 rounded-xl"><i class="fa-solid fa-plus"></i></button>
+          </div>
+        </div>
+
+        <div id="financeList" class="space-y-2"></div>
+        <p id="financeEmpty" class="text-dim text-sm text-center py-6 hidden" data-i18n="noTransactions">No transactions yet.</p>
+      </section>
+
+      <!-- ================= VARIABLES ================= -->
+      <section id="view-variables" class="view">
+        <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="variablesTitle">Env Variables</h2>
+            <p class="text-dim text-sm mt-1" data-i18n="variablesSubtitle">Group keys per app, just like Railway environment variables.</p>
+          </div>
+          <input id="variablesSearch" class="field max-w-xs" type="text" data-i18n-ph="searchPlaceholder" placeholder="Search variables...">
+        </header>
+
+        <div class="card p-4 md:p-5 mb-5">
+          <input id="newEnvName" class="field mb-3" type="text" data-i18n-ph="envNamePlaceholder" placeholder="Environment / app name (e.g. Production API)">
+          <label class="text-xs text-dim mb-2 block" data-i18n="variablesLabel">Variables (KEY = VALUE)</label>
+          <div id="envInputRows" class="space-y-2 mb-2"></div>
+          <button id="addEnvRowBtn" class="text-xs text-accent hover:underline mb-3"><i class="fa-solid fa-plus mr-1"></i><span data-i18n="addVariable">Add another variable</span></button>
+          <button id="createEnvBtn" class="btn-accent block px-4 py-2 rounded-xl text-sm"><i class="fa-solid fa-floppy-disk mr-1"></i><span data-i18n="saveEnv">Save group</span></button>
+        </div>
+
+        <div id="envList" class="space-y-4"></div>
+        <p id="envEmpty" class="text-dim text-sm text-center py-6 hidden" data-i18n="noEnvGroups">No variable groups yet.</p>
+      </section>
+
+      <!-- ================= VAULT ================= -->
+      <section id="view-vault" class="view">
+        <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="vaultTitle">Key Vault</h2>
+            <p class="text-dim text-sm mt-1" data-i18n="vaultSubtitle">Single credentials — for grouped app keys, use Env Variables.</p>
+          </div>
+          <input id="vaultSearch" class="field max-w-xs" type="text" data-i18n-ph="searchPlaceholder" placeholder="Search vault...">
+        </header>
+
+        <div class="card p-4 md:p-5">
+          <div class="grid grid-cols-[1fr_1fr_auto] gap-2 mb-3">
+            <input id="vaultName" class="field" type="text" data-i18n-ph="vaultNamePlaceholder" placeholder="Name">
+            <input id="vaultSecret" class="field font-mono" type="text" data-i18n-ph="vaultSecretPlaceholder" placeholder="Secret / Key">
+            <button id="addVaultBtn" class="btn-accent px-3 rounded-xl"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-dim text-left text-xs uppercase tracking-wide border-b border-token">
+                  <th class="py-2" data-i18n="colName">Name</th>
+                  <th class="py-2" data-i18n="colSecret">Secret</th>
+                  <th class="py-2 text-right" data-i18n="colActions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="vaultTableBody"></tbody>
+            </table>
+            <p id="vaultEmpty" class="text-dim text-sm text-center py-6 hidden" data-i18n="noVault">Vault is empty.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= NOTES ================= -->
+      <section id="view-notes" class="view">
+        <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="notesTitle">Notes</h2>
+            <p class="text-dim text-sm mt-1" data-i18n="notesSubtitle">Multiple scratchpads that auto-save as you type.</p>
+          </div>
+          <input id="notesSearch" class="field max-w-xs" type="text" data-i18n-ph="searchPlaceholder" placeholder="Search notes...">
+        </header>
+
+        <div class="grid lg:grid-cols-[280px_1fr] gap-4">
+          <div class="card p-3">
+            <button id="newNoteBtn" class="btn-accent w-full py-2 rounded-xl text-sm mb-3"><i class="fa-solid fa-plus mr-1"></i><span data-i18n="newNote">New note</span></button>
+            <div id="noteListSidebar" class="space-y-1 max-h-[60vh] overflow-y-auto"></div>
+          </div>
+          <div class="card p-4 md:p-5 flex flex-col min-h-[50vh]">
+            <input id="noteTitleInput" class="field font-display font-semibold text-lg mb-3" type="text" data-i18n-ph="noteTitlePlaceholder" placeholder="Untitled note">
+            <textarea id="noteBodyInput" class="field flex-1 min-h-[300px] font-mono text-sm" data-i18n-ph="notesPlaceholder" placeholder="Auto-saves as you type..."></textarea>
+            <div class="flex items-center justify-between mt-2">
+              <p class="text-xs text-dim" id="notesSavedLabel"></p>
+              <button id="deleteNoteBtn" class="text-xs text-red-400 hover:underline"><i class="fa-solid fa-trash mr-1"></i><span data-i18n="deleteNote">Delete note</span></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SETTINGS ================= -->
+      <section id="view-settings" class="view">
+        <header class="mb-6">
+          <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="settingsTitle">Settings</h2>
+          <p class="text-dim text-sm mt-1" data-i18n="settingsSubtitle">Appearance, language and data portability.</p>
+        </header>
+
+        <div class="card p-5 mb-5">
+          <h3 class="font-display font-semibold mb-3" data-i18n="themeLabel">Theme</h3>
+          <div class="flex gap-3 flex-wrap" id="themeSwatches"></div>
+        </div>
+
+        <div class="card p-5 mb-5">
+          <h3 class="font-display font-semibold mb-3" data-i18n="languageLabel">Language</h3>
+          <div class="flex gap-3">
+            <button class="lang-btn btn-ghost px-4 py-2 rounded-xl" data-lang="en">English</button>
+            <button class="lang-btn btn-ghost px-4 py-2 rounded-xl" data-lang="uz">Oʻzbekcha</button>
+          </div>
+        </div>
+
+        <div class="card p-5 mb-5">
+          <h3 class="font-display font-semibold mb-3" data-i18n="authorizedIds">Authorized Access IDs</h3>
+          <div class="flex gap-2 mb-3">
+            <input id="newAuthId" class="field" type="text" data-i18n-ph="newIdPlaceholder" placeholder="Add a new access ID">
+            <button id="addAuthIdBtn" class="btn-accent px-4 rounded-xl shrink-0"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <div id="authIdList" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <div class="card p-5">
+          <h3 class="font-display font-semibold mb-3" data-i18n="dataPortability">Data Portability</h3>
+          <p class="text-dim text-sm mb-4" data-i18n="dataPortabilityHint">Export a full backup, or import one to restore your data.</p>
+          <div class="flex flex-wrap gap-3">
+            <button id="exportBtn" class="btn-accent px-4 py-2 rounded-xl text-sm"><i class="fa-solid fa-download mr-1"></i><span data-i18n="exportData">Export data</span></button>
+            <button id="importBtn" class="btn-ghost px-4 py-2 rounded-xl text-sm"><i class="fa-solid fa-upload mr-1"></i><span data-i18n="importData">Import data</span></button>
+            <input id="importFile" type="file" accept="application/json" class="hidden">
+            <button id="wipeBtn" class="btn-ghost px-4 py-2 rounded-xl text-sm text-red-300"><i class="fa-solid fa-trash mr-1"></i><span data-i18n="wipeData">Wipe all data</span></button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ===== Mobile Bottom Nav ===== -->
+  <nav class="bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 flex justify-around py-2" id="bottomNav"></nav>
+</div>
+
+<audio id="ringtonePlayer" loop></audio>
+
+<script>
+/* =====================================================================================
+   KLIN — SELF-CONTAINED APPLICATION LOGIC
+   State lives in localStorage ("klin_state_v2"). Uploaded ringtone audio blobs live in
+   IndexedDB ("klin_media_db") since binary audio doesn't belong in localStorage.
+   Defensive coding: every storage read/write and DOM lookup is guarded so a corrupted
+   value or missing node never throws an uncaught exception.
+   ===================================================================================== */
+
+const STORAGE_KEY = 'klin_state_v2';
+const SESSION_KEY = 'klin_session_v1';
+
+/* ---------------------------- Default State Schema ---------------------------- */
+function defaultState(){
+  return {
+    auth: { authorizedIds: ['admin'] },
+    settings: { theme: 'navy', lang: 'en', currency: '₹' },
+    tasks: [],
+    projects: [],
+    vault: [],
+    notes: [],
+    activeNoteId: null,
+    water: { ml: 0, target: 2000, lastDate: todayStr(), alarmEnabled: false, intervalHours: 2, lastAlarmAt: 0, toneId: '' },
+    reminders: [],
+    finance: { transactions: [] },
+    envGroups: [],
+    alarms: [],
+    ringtones: []
+  };
+}
+
+function todayStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+/* ---------------------------- Safe Storage Helpers ---------------------------- */
+function coerceState(parsed){
+  const base = defaultState();
+  // Notes may arrive as a legacy string (v1 schema) — migrate to array form.
+  let notes = [];
+  if(Array.isArray(parsed?.notes)) notes = parsed.notes;
+  else if(typeof parsed?.notes === 'string' && parsed.notes.trim()){
+    notes = [{ id:uid(), title:'Note 1', body:parsed.notes, updatedAt:Date.now() }];
+  }
+  return {
+    auth: { authorizedIds: Array.isArray(parsed?.auth?.authorizedIds) && parsed.auth.authorizedIds.length ? parsed.auth.authorizedIds : base.auth.authorizedIds },
+    settings: {
+      theme: parsed?.settings?.theme || base.settings.theme,
+      lang: parsed?.settings?.lang || base.settings.lang,
+      currency: parsed?.settings?.currency || base.settings.currency
+    },
+    tasks: Array.isArray(parsed?.tasks) ? parsed.tasks : [],
+    projects: Array.isArray(parsed?.projects) ? parsed.projects : [],
+    vault: Array.isArray(parsed?.vault) ? parsed.vault : [],
+    notes,
+    activeNoteId: parsed?.activeNoteId || (notes[0]?.id ?? null),
+    water: {
+      ml: Number.isFinite(parsed?.water?.ml) ? parsed.water.ml : 0,
+      target: Number.isFinite(parsed?.water?.target) ? parsed.water.target : 2000,
+      lastDate: parsed?.water?.lastDate || todayStr(),
+      alarmEnabled: !!parsed?.water?.alarmEnabled,
+      intervalHours: Number.isFinite(parsed?.water?.intervalHours) ? parsed.water.intervalHours : 2,
+      lastAlarmAt: Number.isFinite(parsed?.water?.lastAlarmAt) ? parsed.water.lastAlarmAt : 0,
+      toneId: parsed?.water?.toneId || ''
+    },
+    reminders: Array.isArray(parsed?.reminders) ? parsed.reminders : [],
+    finance: { transactions: Array.isArray(parsed?.finance?.transactions) ? parsed.finance.transactions : [] },
+    envGroups: Array.isArray(parsed?.envGroups) ? parsed.envGroups : [],
+    alarms: Array.isArray(parsed?.alarms) ? parsed.alarms : [],
+    ringtones: Array.isArray(parsed?.ringtones) ? parsed.ringtones : []
+  };
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return defaultState();
+    return coerceState(JSON.parse(raw));
+  }catch(err){
+    console.error('KLIN: failed to load state, resetting.', err);
+    return defaultState();
+  }
+}
+function saveState(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch(err){ console.error('KLIN: failed to save state', err); toast(t('saveError') || 'Could not save data', 'danger'); }
+}
+
+let state = loadState();
+
+/* ---------------------------- Daily Water Reset ---------------------------- */
+(function checkWaterReset(){
+  if(state.water.lastDate !== todayStr()){
+    state.water.ml = 0;
+    state.water.lastDate = todayStr();
+    saveState();
+  }
+})();
+
+/* =====================================================================================
+   INDEXEDDB — RINGTONE BLOB STORAGE
+   ===================================================================================== */
+let mediaDb = null;
+function openMediaDb(){
+  return new Promise((resolve, reject) => {
+    if(mediaDb){ resolve(mediaDb); return; }
+    if(!('indexedDB' in window)){ reject(new Error('IndexedDB unsupported')); return; }
+    const req = indexedDB.open('klin_media_db', 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore('ringtones', { keyPath:'id' }); };
+    req.onsuccess = () => { mediaDb = req.result; resolve(mediaDb); };
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbSaveRingtone(id, blob){
+  const db = await openMediaDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('ringtones','readwrite');
+    tx.objectStore('ringtones').put({ id, blob });
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbGetRingtone(id){
+  const db = await openMediaDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('ringtones','readonly');
+    const req = tx.objectStore('ringtones').get(id);
+    req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbDeleteRingtone(id){
+  try{
+    const db = await openMediaDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('ringtones','readwrite');
+      tx.objectStore('ringtones').delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  }catch(e){ return false; }
+}
+
+/* =====================================================================================
+   LOCALIZATION ENGINE
+   ===================================================================================== */
+const I18N = {
+  en:{
+    systemStatus:'System Standby', gateTitle:'Secure Access', gateSubtitle:'Enter your authorized access ID to continue.',
+    accessIdLabel:'Access ID', rememberSession:'Remember this session', loginBtn:'Log In',
+    loginError:'Access ID not recognized.', masterHint:'default: admin',
+    logout:'Log out', dashTitle:'Dashboard', dashSubtitle:'A snapshot of everything in motion.',
+    upcomingReminders:'Upcoming Reminders', activeProjectsList:'Active Projects',
+    tasksTitle:'To-Do Matrix', tasksSubtitle:'Add, toggle, filter — and set an alarm for anything time-critical.',
+    taskPlaceholder:'What needs doing?', filterAll:'All', filterActive:'Active', filterCompleted:'Completed',
+    clearCompleted:'Clear completed', noTasks:'No tasks yet — add your first one above.',
+    projectsTitle:'Project Phases', projectsSubtitle:'Track live progress across every build.',
+    searchPlaceholder:'Search...', projectNamePlaceholder:'Project name', phasesLabel:'Phases',
+    addPhase:'Add another phase', createProject:'Save project',
+    noProjects:'No projects yet — create one above.', inDevelopment:'In Development', completed:'Completed',
+    waterTitle:'Hydration Log', waterSubtitle:'Resets automatically at the start of each day.',
+    cup:'Cup', reset:'Reset', dailyTarget:'Daily target (ml)', waterAlarmLabel:'Drink-water alarm',
+    everyHours:'Remind me every (hours)', ringtoneLabel:'Ringtone',
+    remindersTitle:'Reminders & Countdowns', remindersSubtitle:'Sorted chronologically, updating live.',
+    reminderTitlePlaceholder:'Reminder title', addReminder:'Add',
+    notifyHint:"Add KLIN to your Home Screen to receive alerts even when the browser tab isn't focused.",
+    enableNotifs:'Enable notifications', noReminders:'No reminders scheduled.', overdue:'Overdue!',
+    daysLeft:'days left', dayLeft:'day left', hoursLeft:'hours left', minsLeft:'min left', dueNow:'Due now',
+    alarmsTitle:'Alarms', alarmsSubtitle:'Real ringing alarms with your own uploaded tones.',
+    ringtoneLibrary:'Ringtone Library', uploadRingtone:'Upload sound file', ringtoneHint:'MP3 / WAV / OGG — stored on this device only.',
+    alarmLabelPlaceholder:'Label (e.g. Wake up)', setAlarm:'Set alarm', alarmDaysHint:'No days selected = rings once at the next occurrence of that time.',
+    noAlarms:'No alarms set.', defaultTone:'Default beep (no upload needed)',
+    vaultTitle:'Key Vault', vaultSubtitle:'Single credentials — for grouped app keys, use Env Variables.',
+    vaultNamePlaceholder:'Name', vaultSecretPlaceholder:'Secret / Key', colName:'Name', colSecret:'Secret',
+    colActions:'Actions', noVault:'Vault is empty.',
+    notesTitle:'Notes', notesSubtitle:'Multiple scratchpads that auto-save as you type.',
+    newNote:'New note', noteTitlePlaceholder:'Untitled note', notesPlaceholder:'Auto-saves as you type...',
+    deleteNote:'Delete note', notesSaved:'Saved',
+    financeTitle:'Accounts', financeSubtitle:'Track what you have and what you spend.',
+    balance:'Balance', totalIncome:'Total Income', totalExpense:'Total Spent', income:'Income', expense:'Expense',
+    amountPlaceholder:'Amount (₹)', labelPlaceholder:'Label / category', noTransactions:'No transactions yet.',
+    variablesTitle:'Env Variables', variablesSubtitle:'Group keys per app, just like Railway environment variables.',
+    envNamePlaceholder:'Environment / app name (e.g. Production API)', variablesLabel:'Variables (KEY = VALUE)',
+    addVariable:'Add another variable', saveEnv:'Save group', noEnvGroups:'No variable groups yet.', copyAll:'Copy all as .env',
+    settingsTitle:'Settings', settingsSubtitle:'Appearance, language and data portability.',
+    themeLabel:'Theme', languageLabel:'Language', authorizedIds:'Authorized Access IDs',
+    newIdPlaceholder:'Add a new access ID', dataPortability:'Data Portability',
+    dataPortabilityHint:'Export a full backup, or import one to restore your data.',
+    exportData:'Export data', importData:'Import data', wipeData:'Wipe all data',
+    statProjects:'Active Projects', statTasks:'Incomplete Tasks', statVault:'Stored Credentials', statWater:'Hydration Today',
+    copied:'Copied to clipboard', taskAdded:'Task added', taskRemoved:'Task removed', projectCreated:'Project saved',
+    reminderAdded:'Reminder added', vaultAdded:'Credential saved', exported:'Backup exported',
+    imported:'Data imported successfully', importFailed:'Import failed — invalid file format', wiped:'All data wiped',
+    confirmWipe:'This will permanently delete all local data. Continue?', confirmDeleteProject:'Delete this project?',
+    idExists:'That ID already exists', idAdded:'Access ID added', idRemoved:'Access ID removed',
+    reminderDue:'Reminder due', notifsEnabled:'Notifications enabled', notifsBlocked:'Notifications blocked by browser',
+    saveError:'Could not save data', loggedOut:'Logged out', snooze:'Snooze 5m', dismiss:'Dismiss',
+    ringtoneUploaded:'Ringtone uploaded', ringtoneRemoved:'Ringtone removed', alarmAdded:'Alarm set',
+    alarmRemoved:'Alarm removed', envGroupSaved:'Variable group saved', envGroupDeleted:'Variable group deleted',
+    fillNameAndOneVar:'Add a group name and at least one variable', taskAlarmRinging:'Task due', waterAlarmRinging:'Time to drink water',
+    once:'Once'
+  },
+  uz:{
+    systemStatus:'Tizim kutmoqda', gateTitle:'Xavfsiz kirish', gateSubtitle:'Davom etish uchun ruxsat etilgan ID kiriting.',
+    accessIdLabel:'Kirish ID', rememberSession:'Seansni eslab qolish', loginBtn:'Kirish',
+    loginError:'ID tanilmadi.', masterHint:'standart: admin',
+    logout:'Chiqish', dashTitle:'Boshqaruv paneli', dashSubtitle:'Barcha jarayonlarning umumiy koʻrinishi.',
+    upcomingReminders:'Yaqin eslatmalar', activeProjectsList:'Faol loyihalar',
+    tasksTitle:'Vazifalar jadvali', tasksSubtitle:'Vazifa qoʻshing, belgilang, saralang — va zarur boʻlsa signal qoʻying.',
+    taskPlaceholder:'Nima qilish kerak?', filterAll:'Barchasi', filterActive:'Faol', filterCompleted:'Bajarilgan',
+    clearCompleted:'Bajarilganlarni tozalash', noTasks:'Hali vazifa yoʻq — yuqorida birinchisini qoʻshing.',
+    projectsTitle:'Loyiha bosqichlari', projectsSubtitle:'Har bir loyihaning jonli progressini kuzating.',
+    searchPlaceholder:'Qidirish...', projectNamePlaceholder:'Loyiha nomi', phasesLabel:'Bosqichlar',
+    addPhase:'Yana bosqich qoʻshish', createProject:'Loyihani saqlash',
+    noProjects:'Hali loyiha yoʻq — yuqorida birini yarating.', inDevelopment:'Ishlab chiqilmoqda', completed:'Yakunlandi',
+    waterTitle:'Suv ichish jurnali', waterSubtitle:'Har kuni avtomatik nolga tushadi.',
+    cup:'Piyola', reset:'Qayta boshlash', dailyTarget:'Kunlik maqsad (ml)', waterAlarmLabel:'Suv ichish signali',
+    everyHours:'Har necha soatda eslatish', ringtoneLabel:'Ohang',
+    remindersTitle:'Eslatmalar va sanoq', remindersSubtitle:'Vaqt boʻyicha saralangan, jonli yangilanadi.',
+    reminderTitlePlaceholder:'Eslatma nomi', addReminder:'Qoʻshish',
+    notifyHint:'Brauzer yopiq boʻlsa ham bildirishnoma olish uchun KLIN-ni Bosh ekranga qoʻshing.',
+    enableNotifs:'Bildirishnomalarni yoqish', noReminders:'Rejalashtirilgan eslatma yoʻq.', overdue:'Muddati oʻtgan!',
+    daysLeft:'kun qoldi', dayLeft:'kun qoldi', hoursLeft:'soat qoldi', minsLeft:'daqiqa qoldi', dueNow:'Hozir vaqti keldi',
+    alarmsTitle:'Signallar', alarmsSubtitle:'Oʻzingiz yuklagan ohanglar bilan haqiqiy signal.',
+    ringtoneLibrary:'Ohanglar kutubxonasi', uploadRingtone:'Ovoz fayli yuklash', ringtoneHint:'MP3 / WAV / OGG — faqat shu qurilmada saqlanadi.',
+    alarmLabelPlaceholder:'Nomi (masalan: Uyg\u02bconish)', setAlarm:'Signal qoʻyish', alarmDaysHint:'Kun tanlanmasa — eng yaqin shu vaqtda bir marta chalinadi.',
+    noAlarms:'Signal qoʻyilmagan.', defaultTone:'Standart signal (yuklash shart emas)',
+    vaultTitle:'Kalitlar ombori', vaultSubtitle:'Yakka kalitlar uchun — guruhlangan kalitlar uchun Env Variables dan foydalaning.',
+    vaultNamePlaceholder:'Nomi', vaultSecretPlaceholder:'Maxfiy kalit', colName:'Nomi', colSecret:'Kalit',
+    colActions:'Amallar', noVault:'Ombor boʻsh.',
+    notesTitle:'Qaydlar', notesSubtitle:'Bir nechta qoralama, yozganingizda avtomatik saqlanadi.',
+    newNote:'Yangi qayd', noteTitlePlaceholder:'Nomsiz qayd', notesPlaceholder:'Yozganingizda avtomatik saqlanadi...',
+    deleteNote:'Qaydni oʻchirish', notesSaved:'Saqlandi',
+    financeTitle:'Hisoblar', financeSubtitle:'Qancha pulingiz borligi va sarfingizni kuzating.',
+    balance:'Balans', totalIncome:'Jami daromad', totalExpense:'Jami xarajat', income:'Daromad', expense:'Xarajat',
+    amountPlaceholder:'Miqdor (₹)', labelPlaceholder:'Nomi / turkum', noTransactions:'Hali tranzaksiya yoʻq.',
+    variablesTitle:'Env oʻzgaruvchilar', variablesSubtitle:'Har bir ilova uchun kalitlarni guruhlang — Railway kabi.',
+    envNamePlaceholder:'Muhit / ilova nomi (masalan: Production API)', variablesLabel:'Oʻzgaruvchilar (KEY = VALUE)',
+    addVariable:'Yana oʻzgaruvchi qoʻshish', saveEnv:'Guruhni saqlash', noEnvGroups:'Hali guruh yoʻq.', copyAll:'.env sifatida nusxalash',
+    settingsTitle:'Sozlamalar', settingsSubtitle:'Koʻrinish, til va maʼlumotlarni koʻchirish.',
+    themeLabel:'Mavzu', languageLabel:'Til', authorizedIds:'Ruxsat etilgan ID lar',
+    newIdPlaceholder:'Yangi ID qoʻshish', dataPortability:'Maʼlumotlarni koʻchirish',
+    dataPortabilityHint:'Toʻliq zaxira nusxa oling yoki tiklash uchun import qiling.',
+    exportData:'Eksport qilish', importData:'Import qilish', wipeData:'Barchasini oʻchirish',
+    statProjects:'Faol loyihalar', statTasks:'Bajarilmagan vazifalar', statVault:'Saqlangan kalitlar', statWater:'Bugungi suv',
+    copied:'Nusxa olindi', taskAdded:'Vazifa qoʻshildi', taskRemoved:'Vazifa oʻchirildi', projectCreated:'Loyiha saqlandi',
+    reminderAdded:'Eslatma qoʻshildi', vaultAdded:'Maʼlumot saqlandi', exported:'Zaxira nusxa yuklandi',
+    imported:'Maʼlumot muvaffaqiyatli import qilindi', importFailed:'Import xato — notoʻgʻri fayl formati', wiped:'Barcha maʼlumot oʻchirildi',
+    confirmWipe:'Bu barcha lokal maʼlumotlarni butunlay oʻchiradi. Davom etasizmi?', confirmDeleteProject:'Bu loyiha oʻchirilsinmi?',
+    idExists:'Bu ID allaqachon mavjud', idAdded:'Kirish ID qoʻshildi', idRemoved:'Kirish ID oʻchirildi',
+    reminderDue:'Eslatma vaqti keldi', notifsEnabled:'Bildirishnomalar yoqildi', notifsBlocked:'Brauzer bildirishnomalarni bloklagan',
+    saveError:'Maʼlumotni saqlab boʻlmadi', loggedOut:'Tizimdan chiqildi', snooze:'5 daqiqaga kechiktirish', dismiss:'Yopish',
+    ringtoneUploaded:'Ohang yuklandi', ringtoneRemoved:'Ohang oʻchirildi', alarmAdded:'Signal qoʻyildi',
+    alarmRemoved:'Signal oʻchirildi', envGroupSaved:'Guruh saqlandi', envGroupDeleted:'Guruh oʻchirildi',
+    fillNameAndOneVar:'Guruh nomi va kamida bitta oʻzgaruvchi kiriting', taskAlarmRinging:'Vazifa muddati', waterAlarmRinging:'Suv ichish vaqti',
+    once:'Bir marta'
+  }
+};
+function t(key){ try{ return I18N[state.settings.lang]?.[key] ?? I18N.en[key] ?? key; }catch(e){ return key; } }
+
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.getAttribute('data-i18n')); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{ el.setAttribute('placeholder', t(el.getAttribute('data-i18n-ph'))); });
+  document.documentElement.lang = state.settings.lang;
+  const gateLbl = document.getElementById('gateLangLabel');
+  if(gateLbl) gateLbl.textContent = state.settings.lang === 'en' ? 'EN → UZ' : 'UZ → EN';
+  renderSidebar(); renderBottomNav(); renderSettings();
+}
+
+/* =====================================================================================
+   TOASTS
+   ===================================================================================== */
+function toast(msg, kind){
+  const host = document.getElementById('toastHost');
+  if(!host) return;
+  const el = document.createElement('div');
+  el.className = 'toast' + (kind === 'danger' ? ' danger' : '');
+  el.innerHTML = `<span>${escapeHtml(msg)}</span>`;
+  host.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(20px)'; el.style.transition='.25s'; setTimeout(()=>el.remove(),260); }, 2600);
+}
+function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str ?? ''; return div.innerHTML; }
+
+/* Animated count-up for dashboard/finance numbers */
+function animateCount(el, endVal, prefix='', suffix=''){
+  if(!el) return;
+  const startVal = Number(el.getAttribute('data-count') || 0);
+  const duration = 500; const startTime = performance.now();
+  function step(now){
+    const progress = Math.min(1, (now-startTime)/duration);
+    const eased = 1 - Math.pow(1-progress, 3);
+    const val = Math.round(startVal + (endVal-startVal)*eased);
+    el.textContent = prefix+val+suffix;
+    if(progress < 1) requestAnimationFrame(step); else el.setAttribute('data-count', endVal);
+  }
+  requestAnimationFrame(step);
+}
+
+/* =====================================================================================
+   THEME ENGINE
+   ===================================================================================== */
+const THEME_META = {
+  navy:{ bg:'#0A0F1E', accent:'#3B82F6' },
+  oled:{ bg:'#000000', accent:'#10B981' },
+  charcoal:{ bg:'#18171C', accent:'#A78BFA' },
+  slate:{ bg:'#151B26', accent:'#F59E0B' },
+  aurora:{ bg:'#F3F5FC', accent:'#6D5EF0' }
+};
+function applyTheme(){
+  const theme = THEME_META[state.settings.theme] ? state.settings.theme : 'navy';
+  document.documentElement.setAttribute('data-theme', theme);
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if(metaTheme) metaTheme.setAttribute('content', THEME_META[theme].bg);
+}
+
+/* =====================================================================================
+   AUTH / LOGIN GATEWAY
+   ===================================================================================== */
+function isLoggedIn(){
+  try{ return localStorage.getItem(SESSION_KEY) === '1' || sessionStorage.getItem(SESSION_KEY) === '1'; }catch(e){ return false; }
+}
+function setLoggedIn(remember){
+  try{ if(remember){ localStorage.setItem(SESSION_KEY,'1'); } else { sessionStorage.setItem(SESSION_KEY,'1'); } }catch(e){ console.error(e); }
+}
+function clearLoggedIn(){ try{ localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); }catch(e){} }
+
+function attemptLogin(){
+  const idInput = document.getElementById('loginId');
+  const remember = document.getElementById('rememberMe');
+  const errorEl = document.getElementById('loginError');
+  const val = (idInput?.value || '').trim().toLowerCase();
+  const authorized = (state.auth.authorizedIds || []).map(x => String(x).trim().toLowerCase());
+  if(val && authorized.includes(val)){
+    setLoggedIn(!!remember?.checked);
+    errorEl?.classList.add('hidden');
+    showApp();
+  } else {
+    errorEl?.classList.remove('hidden');
+  }
+}
+function showApp(){
+  document.getElementById('loginGate')?.classList.add('hidden');
+  document.getElementById('appShell')?.classList.remove('hidden');
+  renderAll();
+}
+function logout(){
+  clearLoggedIn();
+  document.getElementById('appShell')?.classList.add('hidden');
+  document.getElementById('loginGate')?.classList.remove('hidden');
+  toast(t('loggedOut'));
+}
+
+/* =====================================================================================
+   NAVIGATION
+   ===================================================================================== */
+const NAV_ITEMS = [
+  { id:'dashboard', icon:'fa-solid fa-gauge-high', key:'dashTitle' },
+  { id:'tasks', icon:'fa-solid fa-list-check', key:'tasksTitle' },
+  { id:'projects', icon:'fa-solid fa-diagram-project', key:'projectsTitle' },
+  { id:'water', icon:'fa-solid fa-droplet', key:'waterTitle' },
+  { id:'alarms', icon:'fa-solid fa-bell', key:'alarmsTitle' },
+  { id:'reminders', icon:'fa-regular fa-calendar-check', key:'remindersTitle' },
+  { id:'finance', icon:'fa-solid fa-sack-dollar', key:'financeTitle' },
+  { id:'variables', icon:'fa-solid fa-code', key:'variablesTitle' },
+  { id:'vault', icon:'fa-solid fa-key', key:'vaultTitle' },
+  { id:'notes', icon:'fa-solid fa-note-sticky', key:'notesTitle' },
+  { id:'settings', icon:'fa-solid fa-gear', key:'settingsTitle' }
+];
+const BOTTOM_IDS = ['dashboard','tasks','projects','alarms'];
+let currentView = 'dashboard';
+
+function switchView(id){
+  currentView = id;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+id)?.classList.add('active');
+  window.scrollTo({ top:0, behavior:'smooth' });
+  renderSidebar(); renderBottomNav();
+  document.getElementById('mobileMenu')?.classList.add('hidden');
+}
+function renderSidebar(){
+  const nav = document.getElementById('sidebarNav');
+  if(!nav) return;
+  nav.innerHTML = NAV_ITEMS.map(item => `
+    <div class="nav-item ${currentView===item.id?'active':''}" data-nav="${item.id}">
+      <i class="${item.icon} w-4"></i><span>${t(item.key)}</span>
+    </div>`).join('');
+  nav.querySelectorAll('[data-nav]').forEach(el=> el.addEventListener('click', ()=> switchView(el.getAttribute('data-nav'))));
+}
+function renderBottomNav(){
+  const bar = document.getElementById('bottomNav');
+  if(!bar) return;
+  const items = NAV_ITEMS.filter(i => BOTTOM_IDS.includes(i.id));
+  bar.innerHTML = items.map(item => `
+    <button class="bottom-item ${currentView===item.id?'active':''} flex flex-col items-center text-xs gap-1 px-2 py-1" data-nav="${item.id}">
+      <i class="${item.icon} text-lg"></i>
+    </button>`).join('') + `
+    <button class="bottom-item flex flex-col items-center text-xs gap-1 px-2 py-1" id="bottomMoreBtn">
+      <i class="fa-solid fa-ellipsis text-lg"></i>
+    </button>`;
+  bar.querySelectorAll('[data-nav]').forEach(el=> el.addEventListener('click', ()=> switchView(el.getAttribute('data-nav'))));
+  bar.querySelector('#bottomMoreBtn')?.addEventListener('click', toggleMobileMenu);
+}
+function toggleMobileMenu(){
+  const menu = document.getElementById('mobileMenu');
+  if(!menu) return;
+  const isHidden = menu.classList.contains('hidden');
+  if(isHidden){
+    const rest = NAV_ITEMS.filter(i => !BOTTOM_IDS.includes(i.id));
+    menu.innerHTML = rest.map(item => `
+      <div class="nav-item" data-nav="${item.id}"><i class="${item.icon} w-4"></i><span>${t(item.key)}</span></div>`).join('') + `
+      <div class="nav-item" id="mobileLogout"><i class="fa-solid fa-arrow-right-from-bracket w-4"></i><span>${t('logout')}</span></div>`;
+    menu.querySelectorAll('[data-nav]').forEach(el=> el.addEventListener('click', ()=> switchView(el.getAttribute('data-nav'))));
+    menu.querySelector('#mobileLogout')?.addEventListener('click', logout);
+  }
+  menu.classList.toggle('hidden');
+}
+document.getElementById('mobileMenuBtn')?.addEventListener('click', toggleMobileMenu);
+
+/* =====================================================================================
+   DASHBOARD
+   ===================================================================================== */
+function renderDashboard(){
+  const grid = document.getElementById('statGrid');
+  if(!grid) return;
+  const activeProjects = state.projects.length;
+  const incompleteTasks = state.tasks.filter(x=>!x.done).length;
+  const vaultCount = state.vault.length;
+  const waterPct = Math.min(100, Math.round((state.water.ml / Math.max(1,state.water.target)) * 100));
+  const stats = [
+    { id:'stat-projects', label:t('statProjects'), value:activeProjects, icon:'fa-diagram-project' },
+    { id:'stat-tasks', label:t('statTasks'), value:incompleteTasks, icon:'fa-list-check' },
+    { id:'stat-vault', label:t('statVault'), value:vaultCount, icon:'fa-key' },
+    { id:'stat-water', label:t('statWater'), value:waterPct, icon:'fa-droplet', suffix:'%' }
+  ];
+  if(!grid.dataset.built){
+    grid.innerHTML = stats.map(s => `
+      <div class="card p-4 md:p-5">
+        <div class="flex items-center justify-between mb-3"><i class="fa-solid ${s.icon} text-accent"></i></div>
+        <div class="font-display text-2xl font-bold count-num" id="${s.id}" data-count="0">0${s.suffix||''}</div>
+        <div class="text-dim text-xs mt-1">${s.label}</div>
+      </div>`).join('');
+    grid.dataset.built = '1';
+  } else {
+    grid.querySelectorAll('.text-dim.text-xs').forEach((el,i)=>{ if(stats[i]) el.textContent = stats[i].label; });
+  }
+  stats.forEach(s => animateCount(document.getElementById(s.id), s.value, '', s.suffix||''));
+
+  const remHost = document.getElementById('dashReminders');
+  if(remHost){
+    const upcoming = [...state.reminders].sort((a,b)=> new Date(a.datetime)-new Date(b.datetime)).slice(0,4);
+    remHost.innerHTML = upcoming.length ? upcoming.map(r => `
+      <div class="flex items-center justify-between border-b border-token pb-2 last:border-0 last:pb-0">
+        <span class="truncate pr-2">${escapeHtml(r.title)}</span>
+        <span class="font-mono text-xs text-accent shrink-0">${countdownLabel(r.datetime)}</span>
+      </div>`).join('') : `<p class="text-dim text-sm">${t('noReminders')}</p>`;
+  }
+  const projHost = document.getElementById('dashProjects');
+  if(projHost){
+    const list = state.projects.slice(0,4);
+    projHost.innerHTML = list.length ? list.map(p => {
+      const pct = phasePercent(p);
+      return `<div><div class="flex justify-between text-sm mb-1"><span class="truncate pr-2">${escapeHtml(p.name)}</span><span class="text-dim font-mono text-xs">${pct}%</span></div>
+      <div class="progress-track h-2"><div class="progress-fill ${pct>=100?'complete':''}" style="width:${pct}%"></div></div></div>`;
+    }).join('') : `<p class="text-dim text-sm">${t('noProjects')}</p>`;
+  }
+}
+
+/* =====================================================================================
+   TASKS MODULE (with optional per-task alarm)
+   ===================================================================================== */
+let taskFilter = 'all';
+function renderTasks(){
+  const list = document.getElementById('taskList');
+  const empty = document.getElementById('taskEmpty');
+  if(!list) return;
+  document.querySelectorAll('.filter-btn').forEach(b=>{
+    const active = b.getAttribute('data-filter')===taskFilter;
+    b.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+    b.style.color = active ? 'var(--accent)' : '';
+  });
+  let items = state.tasks;
+  if(taskFilter==='active') items = items.filter(x=>!x.done);
+  if(taskFilter==='completed') items = items.filter(x=>x.done);
+
+  list.innerHTML = items.map(task => `
+    <div class="flex items-center gap-3 card-2 px-3 py-2.5">
+      <input type="checkbox" class="chk task-toggle" data-id="${task.id}" ${task.done?'checked':''}>
+      <span class="flex-1 text-sm ${task.done?'line-through text-dim':''}">${escapeHtml(task.text)}</span>
+      ${task.alarmAt ? `<span class="text-xs font-mono text-accent shrink-0"><i class="fa-solid fa-bell mr-1"></i>${new Date(task.alarmAt).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>` : ''}
+      <button class="task-delete text-dim hover:text-red-400" data-id="${task.id}"><i class="fa-solid fa-trash"></i></button>
+    </div>`).join('');
+  empty?.classList.toggle('hidden', items.length !== 0);
+
+  list.querySelectorAll('.task-toggle').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const task = state.tasks.find(x=>x.id===cb.getAttribute('data-id'));
+      if(task){ task.done = cb.checked; saveState(); renderTasks(); renderDashboard(); }
+    });
+  });
+  list.querySelectorAll('.task-delete').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.tasks = state.tasks.filter(x=>x.id!==btn.getAttribute('data-id'));
+      saveState(); renderTasks(); renderDashboard(); toast(t('taskRemoved'));
+    });
+  });
+}
+document.getElementById('taskAddBtn')?.addEventListener('click', addTaskFromInput);
+document.getElementById('taskInput')?.addEventListener('keydown', e=>{ if(e.key==='Enter') addTaskFromInput(); });
+function addTaskFromInput(){
+  const input = document.getElementById('taskInput');
+  const alarmInput = document.getElementById('taskAlarmInput');
+  const val = (input?.value || '').trim();
+  if(!val) return;
+  state.tasks.unshift({ id:uid(), text:val, done:false, alarmAt: alarmInput?.value || null, alarmFired:false });
+  if(input) input.value=''; if(alarmInput) alarmInput.value='';
+  saveState(); renderTasks(); renderDashboard(); toast(t('taskAdded'));
+}
+document.querySelectorAll('.filter-btn').forEach(btn=> btn.addEventListener('click', ()=>{ taskFilter = btn.getAttribute('data-filter'); renderTasks(); }));
+document.getElementById('clearCompletedBtn')?.addEventListener('click', ()=>{
+  state.tasks = state.tasks.filter(x=>!x.done);
+  saveState(); renderTasks(); renderDashboard();
+});
+
+/* =====================================================================================
+   PROJECTS MODULE — dynamic phase-row builder
+   ===================================================================================== */
+let projectSearchTerm = '';
+function phasePercent(project){
+  if(!project.phases || !project.phases.length) return 0;
+  const done = project.phases.filter(p=>p.done).length;
+  return Math.round((done / project.phases.length) * 100);
+}
+function renderPhaseInputRows(){
+  const host = document.getElementById('phaseInputRows');
+  if(!host) return;
+  if(!host.children.length){ addPhaseInputRow(); }
+}
+function addPhaseInputRow(value=''){
+  const host = document.getElementById('phaseInputRows');
+  if(!host) return;
+  const row = document.createElement('div');
+  row.className = 'flex gap-2 dyn-row';
+  row.innerHTML = `<input class="field phase-input" type="text" placeholder="${t('phasesLabel')} ${host.children.length+1}" value="${escapeHtml(value)}">
+    <button type="button" class="remove-phase-row btn-ghost px-3 rounded-lg"><i class="fa-solid fa-xmark"></i></button>`;
+  row.querySelector('.remove-phase-row').addEventListener('click', ()=>{
+    if(host.children.length > 1) row.remove();
+  });
+  host.appendChild(row);
+}
+document.getElementById('addPhaseRowBtn')?.addEventListener('click', ()=> addPhaseInputRow());
+
+function renderProjects(){
+  const list = document.getElementById('projectList');
+  const empty = document.getElementById('projectEmpty');
+  if(!list) return;
+  const filtered = state.projects.filter(p => p.name.toLowerCase().includes(projectSearchTerm.toLowerCase()));
+  list.innerHTML = filtered.map(project => {
+    const pct = phasePercent(project);
+    const complete = pct >= 100 && project.phases.length > 0;
+    return `<div class="card p-4 md:p-5">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <h3 class="font-display font-semibold">${escapeHtml(project.name)}</h3>
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="text-xs px-2.5 py-1 rounded-full font-mono ${complete?'badge-complete':'badge-dev'}">${complete ? t('completed') : `${t('inDevelopment')} (${pct}%)`}</span>
+          <button class="project-delete text-dim hover:text-red-400" data-id="${project.id}"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+      <div class="progress-track h-2.5 mb-4"><div class="progress-fill ${complete?'complete':''}" style="width:${pct}%"></div></div>
+      <div class="grid sm:grid-cols-2 gap-2">
+        ${project.phases.map(phase => `
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" class="chk phase-toggle" data-project="${project.id}" data-phase="${phase.id}" ${phase.done?'checked':''}>
+            <span class="${phase.done?'line-through text-dim':''}">${escapeHtml(phase.name)}</span>
+          </label>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  empty?.classList.toggle('hidden', filtered.length !== 0 || projectSearchTerm !== '');
+
+  list.querySelectorAll('.phase-toggle').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const project = state.projects.find(x=>x.id===cb.getAttribute('data-project'));
+      const phase = project?.phases.find(x=>x.id===cb.getAttribute('data-phase'));
+      if(phase){ phase.done = cb.checked; saveState(); renderProjects(); renderDashboard(); }
+    });
+  });
+  list.querySelectorAll('.project-delete').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!confirm(t('confirmDeleteProject'))) return;
+      state.projects = state.projects.filter(x=>x.id!==btn.getAttribute('data-id'));
+      saveState(); renderProjects(); renderDashboard();
+    });
+  });
+}
+document.getElementById('addProjectBtn')?.addEventListener('click', ()=>{
+  const nameInput = document.getElementById('newProjectName');
+  const name = (nameInput?.value || '').trim();
+  if(!name) return;
+  const phaseInputs = Array.from(document.querySelectorAll('#phaseInputRows .phase-input'));
+  const phases = phaseInputs.map(inp => inp.value.trim()).filter(Boolean).map(p => ({ id:uid(), name:p, done:false }));
+  state.projects.unshift({ id:uid(), name, phases });
+  if(nameInput) nameInput.value='';
+  const host = document.getElementById('phaseInputRows');
+  if(host){ host.innerHTML=''; addPhaseInputRow(); }
+  saveState(); renderProjects(); renderDashboard(); toast(t('projectCreated'));
+});
+document.getElementById('projectSearch')?.addEventListener('input', e=>{ projectSearchTerm = e.target.value; renderProjects(); });
+
+/* =====================================================================================
+   WATER MODULE (with optional recurring alarm)
+   ===================================================================================== */
+function renderWater(){
+  const mlLabel = document.getElementById('waterMlLabel');
+  const targetLabel = document.getElementById('waterTargetLabel');
+  const gauge = document.getElementById('gaugeFg');
+  const targetInput = document.getElementById('waterTargetInput');
+  if(!mlLabel || !gauge) return;
+  const pct = Math.min(1, state.water.ml / Math.max(1,state.water.target));
+  const circumference = 2 * Math.PI * 82;
+  gauge.setAttribute('stroke-dasharray', circumference.toFixed(1));
+  gauge.setAttribute('stroke-dashoffset', (circumference * (1-pct)).toFixed(1));
+  mlLabel.textContent = state.water.ml;
+  if(targetLabel) targetLabel.textContent = `/ ${state.water.target} ml`;
+  if(targetInput && document.activeElement !== targetInput) targetInput.value = state.water.target;
+
+  const toggle = document.getElementById('waterAlarmToggle');
+  toggle?.classList.toggle('on', !!state.water.alarmEnabled);
+  const intervalInput = document.getElementById('waterAlarmInterval');
+  if(intervalInput && document.activeElement !== intervalInput) intervalInput.value = state.water.intervalHours;
+  populateToneSelect(document.getElementById('waterAlarmTone'), state.water.toneId);
+}
+document.querySelectorAll('.water-add').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const ml = Number(btn.getAttribute('data-ml')) || 0;
+    state.water.ml = Math.max(0, state.water.ml + ml);
+    state.water.lastDate = todayStr();
+    saveState(); renderWater(); renderDashboard();
+  });
+});
+document.getElementById('waterResetBtn')?.addEventListener('click', ()=>{ state.water.ml = 0; saveState(); renderWater(); renderDashboard(); });
+document.getElementById('waterTargetInput')?.addEventListener('input', e=>{
+  const val = Number(e.target.value);
+  if(Number.isFinite(val) && val > 0){ state.water.target = val; saveState(); renderWater(); renderDashboard(); }
+});
+document.getElementById('waterAlarmToggle')?.addEventListener('click', ()=>{
+  state.water.alarmEnabled = !state.water.alarmEnabled;
+  state.water.lastAlarmAt = Date.now();
+  saveState(); renderWater();
+});
+document.getElementById('waterAlarmInterval')?.addEventListener('input', e=>{
+  const val = Number(e.target.value);
+  if(Number.isFinite(val) && val > 0){ state.water.intervalHours = val; saveState(); }
+});
+document.getElementById('waterAlarmTone')?.addEventListener('change', e=>{ state.water.toneId = e.target.value; saveState(); });
+
+/* =====================================================================================
+   RINGTONE LIBRARY (shared by Alarms, Water, and reminder-style rings)
+   ===================================================================================== */
+document.getElementById('uploadRingtoneBtn')?.addEventListener('click', ()=> document.getElementById('ringtoneFile')?.click());
+document.getElementById('ringtoneFile')?.addEventListener('change', async (e)=>{
+  const file = e.target.files?.[0];
+  if(!file) return;
+  const id = uid();
+  try{
+    await idbSaveRingtone(id, file);
+    state.ringtones.push({ id, name: file.name });
+    saveState(); renderRingtoneList(); populateAllToneSelects();
+    toast(t('ringtoneUploaded'));
+  }catch(err){ console.error('KLIN: ringtone upload failed', err); toast(t('saveError'),'danger'); }
+  e.target.value = '';
+});
+function renderRingtoneList(){
+  const host = document.getElementById('ringtoneList');
+  if(!host) return;
+  host.innerHTML = state.ringtones.map(r => `
+    <span class="card-2 px-3 py-1.5 rounded-full text-sm flex items-center gap-2">
+      <i class="fa-solid fa-music text-accent"></i> ${escapeHtml(r.name)}
+      <button class="ringtone-preview text-dim hover:text-accent" data-id="${r.id}"><i class="fa-solid fa-play"></i></button>
+      <button class="ringtone-remove text-dim hover:text-red-400" data-id="${r.id}"><i class="fa-solid fa-xmark"></i></button>
+    </span>`).join('') || `<p class="text-dim text-sm">${t('defaultTone')}</p>`;
+  host.querySelectorAll('.ringtone-preview').forEach(btn=> btn.addEventListener('click', ()=> previewTone(btn.getAttribute('data-id'))));
+  host.querySelectorAll('.ringtone-remove').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.getAttribute('data-id');
+      await idbDeleteRingtone(id);
+      state.ringtones = state.ringtones.filter(r=>r.id!==id);
+      state.alarms.forEach(a=>{ if(a.toneId===id) a.toneId=''; });
+      if(state.water.toneId===id) state.water.toneId='';
+      saveState(); renderRingtoneList(); populateAllToneSelects(); renderAlarms();
+      toast(t('ringtoneRemoved'));
+    });
+  });
+}
+async function previewTone(toneId){
+  await playTone(toneId, false);
+  setTimeout(stopRingtonePlayer, 3000);
+}
+function populateToneSelect(select, selectedId){
+  if(!select) return;
+  select.innerHTML = `<option value="">${t('defaultTone')}</option>` + state.ringtones.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+  select.value = selectedId || '';
+}
+function populateAllToneSelects(){
+  populateToneSelect(document.getElementById('alarmTone'));
+  populateToneSelect(document.getElementById('waterAlarmTone'), state.water.toneId);
+}
+
+/* =====================================================================================
+   SOUND ENGINE — plays uploaded ringtone blobs, or a generated fallback beep
+   ===================================================================================== */
+let fallbackAudioCtx = null;
+let fallbackInterval = null;
+function stopRingtonePlayer(){
+  const player = document.getElementById('ringtonePlayer');
+  if(player){ player.pause(); player.src=''; }
+  if(fallbackInterval){ clearInterval(fallbackInterval); fallbackInterval = null; }
+}
+async function playTone(toneId, loop){
+  stopRingtonePlayer();
+  const player = document.getElementById('ringtonePlayer');
+  if(toneId){
+    try{
+      const blob = await idbGetRingtone(toneId);
+      if(blob && player){
+        const url = URL.createObjectURL(blob);
+        player.src = url; player.loop = !!loop;
+        await player.play().catch(()=>{});
+        return;
+      }
+    }catch(err){ console.warn('KLIN: could not play uploaded ringtone, using fallback', err); }
+  }
+  // Fallback: generate a simple beep pattern with Web Audio so alarms always work,
+  // even before the user has uploaded any ringtone file.
+  try{
+    if(!fallbackAudioCtx) fallbackAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const beep = () => {
+      const osc = fallbackAudioCtx.createOscillator();
+      const gain = fallbackAudioCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, fallbackAudioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.2, fallbackAudioCtx.currentTime+.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, fallbackAudioCtx.currentTime+.35);
+      osc.connect(gain).connect(fallbackAudioCtx.destination);
+      osc.start(); osc.stop(fallbackAudioCtx.currentTime+.4);
+    };
+    beep();
+    if(loop){ fallbackInterval = setInterval(beep, 700); }
+  }catch(err){ console.warn('KLIN: fallback tone unavailable', err); }
+}
+
+/* Ringing overlay — shared by Alarms module, task alarms, and water alarms */
+let ringingContext = null;
+function showRingingOverlay(kind, label, toneId){
+  ringingContext = { kind, label, toneId };
+  document.getElementById('ringKind').textContent = kind;
+  document.getElementById('ringLabel').textContent = label;
+  document.getElementById('ringOverlay')?.classList.remove('hidden');
+  playTone(toneId, true);
+  try{ if('vibrate' in navigator) navigator.vibrate([400,200,400,200,400]); }catch(e){}
+}
+function hideRingingOverlay(){
+  document.getElementById('ringOverlay')?.classList.add('hidden');
+  stopRingtonePlayer();
+  ringingContext = null;
+}
+document.getElementById('ringDismissBtn')?.addEventListener('click', hideRingingOverlay);
+document.getElementById('ringSnoozeBtn')?.addEventListener('click', ()=>{
+  if(ringingContext){
+    const snoozeAt = Date.now() + 5*60000;
+    if(ringingContext.kind === t('alarmsTitle')){
+      // handled generically via lastFiredCheck below by pushing a one-off snooze alarm
+      state.alarms.push({ id:uid(), label:ringingContext.label, time:new Date(snoozeAt).toTimeString().slice(0,5), days:[], enabled:true, toneId:ringingContext.toneId, snoozeUntil:snoozeAt, oneOff:true });
+    } else if(ringingContext.kind === t('taskAlarmRinging')){
+      const task = state.tasks.find(x => x.text === ringingContext.label);
+      if(task){ task.alarmAt = new Date(snoozeAt).toISOString(); task.alarmFired = false; }
+    } else if(ringingContext.kind === t('waterAlarmRinging')){
+      state.water.lastAlarmAt = Date.now() - (state.water.intervalHours*3600000) + 5*60000;
+    }
+    saveState();
+  }
+  hideRingingOverlay();
+});
+
+/* =====================================================================================
+   ALARMS MODULE (phone-style: time + repeat days)
+   ===================================================================================== */
+const DAY_KEYS = ['S','M','T','W','T','F','S'];
+function renderAlarmDayPicker(selectedDays){
+  const host = document.getElementById('alarmDayPicker');
+  if(!host) return;
+  host.innerHTML = DAY_KEYS.map((d,i) => `
+    <button type="button" class="day-chip btn-ghost w-9 h-9 rounded-full text-xs" data-day="${i}" style="${(selectedDays||[]).includes(i)?'border-color:var(--accent);color:var(--accent)':''}">${d}</button>`).join('');
+  host.querySelectorAll('.day-chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const active = btn.style.color === 'var(--accent)' || btn.style.borderColor === 'var(--accent)';
+      if(active){ btn.style.color=''; btn.style.borderColor=''; }
+      else{ btn.style.color='var(--accent)'; btn.style.borderColor='var(--accent)'; }
+    });
+  });
+}
+document.getElementById('addAlarmBtn')?.addEventListener('click', ()=>{
+  const labelInput = document.getElementById('alarmLabel');
+  const timeInput = document.getElementById('alarmTime');
+  const toneSelect = document.getElementById('alarmTone');
+  const label = (labelInput?.value || '').trim() || t('alarmsTitle');
+  const time = timeInput?.value;
+  if(!time) return;
+  const days = Array.from(document.querySelectorAll('#alarmDayPicker .day-chip'))
+    .filter(b => b.style.color === 'var(--accent)')
+    .map(b => Number(b.getAttribute('data-day')));
+  state.alarms.push({ id:uid(), label, time, days, enabled:true, toneId: toneSelect?.value || '', lastFiredKey:'' });
+  if(labelInput) labelInput.value=''; if(timeInput) timeInput.value='';
+  renderAlarmDayPicker([]);
+  saveState(); renderAlarms(); toast(t('alarmAdded'));
+});
+function renderAlarms(){
+  const list = document.getElementById('alarmList');
+  const empty = document.getElementById('alarmEmpty');
+  if(!list) return;
+  const sorted = [...state.alarms].sort((a,b)=> a.time.localeCompare(b.time));
+  list.innerHTML = sorted.map(a => {
+    const dayLabel = (a.days && a.days.length) ? a.days.map(d=>DAY_KEYS[d]).join(' ') : t('once');
+    const toneName = state.ringtones.find(r=>r.id===a.toneId)?.name || t('defaultTone');
+    return `<div class="card p-4 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="font-display font-bold text-xl">${escapeHtml(a.time)}</p>
+        <p class="text-sm truncate">${escapeHtml(a.label)}</p>
+        <p class="text-dim text-xs font-mono">${escapeHtml(dayLabel)} · ${escapeHtml(toneName)}</p>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="toggle alarm-toggle ${a.enabled?'on':''}" data-id="${a.id}"></div>
+        <button class="alarm-delete text-dim hover:text-red-400" data-id="${a.id}"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+  empty?.classList.toggle('hidden', sorted.length !== 0);
+
+  list.querySelectorAll('.alarm-toggle').forEach(tg=>{
+    tg.addEventListener('click', ()=>{
+      const alarm = state.alarms.find(x=>x.id===tg.getAttribute('data-id'));
+      if(alarm){ alarm.enabled = !alarm.enabled; saveState(); renderAlarms(); }
+    });
+  });
+  list.querySelectorAll('.alarm-delete').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.alarms = state.alarms.filter(x=>x.id!==btn.getAttribute('data-id'));
+      saveState(); renderAlarms(); toast(t('alarmRemoved'));
+    });
+  });
+}
+
+/* =====================================================================================
+   REMINDERS MODULE
+   ===================================================================================== */
+let reminderSearchTerm = '';
+function countdownLabel(datetime){
+  const target = new Date(datetime).getTime();
+  const now = Date.now();
+  const diff = target - now;
+  if(Number.isNaN(target)) return '';
+  if(diff <= 0) return t('overdue');
+  const mins = Math.floor(diff/60000);
+  const hours = Math.floor(mins/60);
+  const days = Math.floor(hours/24);
+  if(days >= 1) return `${days} ${days===1?t('dayLeft'):t('daysLeft')}`;
+  if(hours >= 1) return `${hours} ${t('hoursLeft')}`;
+  return `${Math.max(0,mins)} ${t('minsLeft')}`;
+}
+function renderReminders(){
+  const list = document.getElementById('reminderList');
+  const empty = document.getElementById('reminderEmpty');
+  if(!list) return;
+  const filtered = state.reminders.filter(r => r.title.toLowerCase().includes(reminderSearchTerm.toLowerCase()))
+    .sort((a,b)=> new Date(a.datetime) - new Date(b.datetime));
+  list.innerHTML = filtered.map(r => {
+    const overdue = new Date(r.datetime).getTime() <= Date.now();
+    return `<div class="card p-4 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="font-medium truncate">${escapeHtml(r.title)}</p>
+        <p class="text-dim text-xs font-mono">${new Date(r.datetime).toLocaleString()}</p>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <span class="text-xs font-mono px-2.5 py-1 rounded-full ${overdue?'':'badge-dev'}" style="${overdue?'color:#F87171;background:rgba(248,113,113,.15)':''}">${countdownLabel(r.datetime)}</span>
+        <button class="reminder-delete text-dim hover:text-red-400" data-id="${r.id}"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+  empty?.classList.toggle('hidden', filtered.length !== 0);
+  list.querySelectorAll('.reminder-delete').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.reminders = state.reminders.filter(x=>x.id!==btn.getAttribute('data-id'));
+      saveState(); renderReminders(); renderDashboard();
+    });
+  });
+}
+document.getElementById('addReminderBtn')?.addEventListener('click', ()=>{
+  const titleInput = document.getElementById('reminderTitle');
+  const dateInput = document.getElementById('reminderDate');
+  const title = (titleInput?.value || '').trim();
+  const datetime = dateInput?.value;
+  if(!title || !datetime) return;
+  state.reminders.push({ id:uid(), title, datetime, notified:false });
+  if(titleInput) titleInput.value=''; if(dateInput) dateInput.value='';
+  saveState(); renderReminders(); renderDashboard(); toast(t('reminderAdded'));
+});
+document.getElementById('reminderSearch')?.addEventListener('input', e=>{ reminderSearchTerm = e.target.value; renderReminders(); });
+document.getElementById('enableNotifsBtn')?.addEventListener('click', ()=>{
+  if(!('Notification' in window)){ toast(t('notifsBlocked'),'danger'); return; }
+  Notification.requestPermission().then(perm=>{
+    toast(perm === 'granted' ? t('notifsEnabled') : t('notifsBlocked'), perm==='granted'?undefined:'danger');
+  }).catch(()=>{});
+});
+
+/* =====================================================================================
+   FINANCE / ACCOUNTS MODULE
+   ===================================================================================== */
+let financeSearchTerm = '';
+function renderFinance(){
+  const txs = state.finance.transactions;
+  const income = txs.filter(x=>x.type==='income').reduce((s,x)=>s+Number(x.amount||0),0);
+  const expense = txs.filter(x=>x.type==='expense').reduce((s,x)=>s+Number(x.amount||0),0);
+  const balance = income - expense;
+  const cur = state.settings.currency || '₹';
+  animateCount(document.getElementById('financeBalance'), balance, cur);
+  animateCount(document.getElementById('financeIncome'), income, cur);
+  animateCount(document.getElementById('financeExpense'), expense, cur);
+
+  const list = document.getElementById('financeList');
+  const empty = document.getElementById('financeEmpty');
+  if(!list) return;
+  const filtered = txs.filter(x => x.label.toLowerCase().includes(financeSearchTerm.toLowerCase())).sort((a,b)=> new Date(b.date)-new Date(a.date));
+  list.innerHTML = filtered.map(x => `
+    <div class="card-2 p-3.5 flex items-center justify-between gap-3">
+      <div class="min-w-0 flex items-center gap-3">
+        <span class="text-xs px-2 py-1 rounded-full font-mono ${x.type==='income'?'badge-income':'badge-expense'}"><i class="fa-solid fa-${x.type==='income'?'arrow-down':'arrow-up'}"></i></span>
+        <div class="min-w-0">
+          <p class="text-sm truncate">${escapeHtml(x.label)}</p>
+          <p class="text-dim text-xs font-mono">${x.date}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <span class="font-mono text-sm ${x.type==='income'?'':'text-red-300'}" style="${x.type==='income'?'color:#34D399':''}">${x.type==='income'?'+':'-'}${cur}${Number(x.amount).toLocaleString('en-IN')}</span>
+        <button class="finance-delete text-dim hover:text-red-400" data-id="${x.id}"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>`).join('');
+  empty?.classList.toggle('hidden', filtered.length !== 0);
+  list.querySelectorAll('.finance-delete').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.finance.transactions = state.finance.transactions.filter(x=>x.id!==btn.getAttribute('data-id'));
+      saveState(); renderFinance();
+    });
+  });
+}
+document.getElementById('addFinanceBtn')?.addEventListener('click', ()=>{
+  const type = document.getElementById('financeType')?.value || 'expense';
+  const amount = Number(document.getElementById('financeAmount')?.value);
+  const labelInput = document.getElementById('financeLabel');
+  const label = (labelInput?.value || '').trim();
+  const dateInput = document.getElementById('financeDate');
+  const date = dateInput?.value || todayStr();
+  if(!Number.isFinite(amount) || amount <= 0 || !label) return;
+  state.finance.transactions.push({ id:uid(), type, amount, label, date });
+  document.getElementById('financeAmount').value=''; if(labelInput) labelInput.value='';
+  saveState(); renderFinance();
+});
+document.getElementById('financeSearch')?.addEventListener('input', e=>{ financeSearchTerm = e.target.value; renderFinance(); });
+
+/* =====================================================================================
+   VARIABLES MODULE — Railway-style grouped env vars, dynamic row builder
+   ===================================================================================== */
+function addEnvInputRow(key='', value=''){
+  const host = document.getElementById('envInputRows');
+  if(!host) return;
+  const row = document.createElement('div');
+  row.className = 'grid grid-cols-[1fr_1fr_auto] gap-2 dyn-row';
+  row.innerHTML = `<input class="field env-key font-mono text-sm" type="text" placeholder="KEY" value="${escapeHtml(key)}">
+    <input class="field env-value font-mono text-sm" type="text" placeholder="value" value="${escapeHtml(value)}">
+    <button type="button" class="remove-env-row btn-ghost px-3 rounded-lg"><i class="fa-solid fa-xmark"></i></button>`;
+  row.querySelector('.remove-env-row').addEventListener('click', ()=>{ if(host.children.length>1) row.remove(); });
+  host.appendChild(row);
+}
+document.getElementById('addEnvRowBtn')?.addEventListener('click', ()=> addEnvInputRow());
+document.getElementById('createEnvBtn')?.addEventListener('click', ()=>{
+  const nameInput = document.getElementById('newEnvName');
+  const name = (nameInput?.value || '').trim();
+  const rows = Array.from(document.querySelectorAll('#envInputRows > div'));
+  const vars = rows.map(r => ({
+    key: r.querySelector('.env-key')?.value.trim(),
+    value: r.querySelector('.env-value')?.value.trim()
+  })).filter(v => v.key).map(v => ({ id:uid(), key:v.key, value:v.value }));
+  if(!name || !vars.length){ toast(t('fillNameAndOneVar'),'danger'); return; }
+  state.envGroups.unshift({ id:uid(), name, vars });
+  if(nameInput) nameInput.value='';
+  const host = document.getElementById('envInputRows');
+  if(host){ host.innerHTML=''; addEnvInputRow(); }
+  saveState(); renderVariables(); toast(t('envGroupSaved'));
+});
+let variablesSearchTerm = '';
+function renderVariables(){
+  const list = document.getElementById('envList');
+  const empty = document.getElementById('envEmpty');
+  if(!list) return;
+  const filtered = state.envGroups.filter(g => g.name.toLowerCase().includes(variablesSearchTerm.toLowerCase())
+    || g.vars.some(v => v.key.toLowerCase().includes(variablesSearchTerm.toLowerCase())));
+  list.innerHTML = filtered.map(group => `
+    <div class="card p-4 md:p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-display font-semibold">${escapeHtml(group.name)}</h3>
+        <div class="flex items-center gap-2">
+          <button class="env-copy-all btn-ghost px-3 py-1.5 rounded-lg text-xs" data-id="${group.id}"><i class="fa-solid fa-copy mr-1"></i>${t('copyAll')}</button>
+          <button class="env-delete text-dim hover:text-red-400" data-id="${group.id}"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+      <div class="space-y-1.5">
+        ${group.vars.map(v => `
+          <div class="card-2 px-3 py-2 flex items-center justify-between gap-2 font-mono text-sm">
+            <span class="truncate"><span class="text-accent">${escapeHtml(v.key)}</span>=<span class="text-dim">${escapeHtml(v.value)}</span></span>
+            <button class="env-copy-one text-dim hover:text-accent shrink-0" data-key="${escapeHtml(v.key)}" data-value="${escapeHtml(v.value)}"><i class="fa-regular fa-copy"></i></button>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+  empty?.classList.toggle('hidden', filtered.length !== 0);
+
+  list.querySelectorAll('.env-copy-one').forEach(btn=>{
+    btn.addEventListener('click', ()=> copyText(`${btn.getAttribute('data-key')}=${btn.getAttribute('data-value')}`));
+  });
+  list.querySelectorAll('.env-copy-all').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const group = state.envGroups.find(g=>g.id===btn.getAttribute('data-id'));
+      if(group) copyText(group.vars.map(v=>`${v.key}=${v.value}`).join('\n'));
+    });
+  });
+  list.querySelectorAll('.env-delete').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.envGroups = state.envGroups.filter(g=>g.id!==btn.getAttribute('data-id'));
+      saveState(); renderVariables(); toast(t('envGroupDeleted'));
+    });
+  });
+}
+document.getElementById('variablesSearch')?.addEventListener('input', e=>{ variablesSearchTerm = e.target.value; renderVariables(); });
+async function copyText(text){
+  try{ await navigator.clipboard.writeText(text); toast(t('copied')); }
+  catch(e){
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); toast(t('copied')); }catch(e2){}
+    ta.remove();
+  }
+}
+
+/* =====================================================================================
+   VAULT MODULE
+   ===================================================================================== */
+let vaultSearchTerm = '';
+function renderVault(){
+  const body = document.getElementById('vaultTableBody');
+  const empty = document.getElementById('vaultEmpty');
+  if(!body) return;
+  const filtered = state.vault.filter(v => v.name.toLowerCase().includes(vaultSearchTerm.toLowerCase()));
+  body.innerHTML = filtered.map(v => `
+    <tr class="border-b border-token last:border-0">
+      <td class="py-2 pr-2">${escapeHtml(v.name)}</td>
+      <td class="py-2 pr-2 font-mono text-dim">${'•'.repeat(Math.min(10, v.secret.length || 6))}</td>
+      <td class="py-2 text-right whitespace-nowrap">
+        <button class="vault-copy btn-ghost px-2 py-1 rounded-lg text-xs mr-1" data-id="${v.id}"><i class="fa-regular fa-copy"></i></button>
+        <button class="vault-delete btn-ghost px-2 py-1 rounded-lg text-xs" data-id="${v.id}"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+  empty?.classList.toggle('hidden', filtered.length !== 0);
+  body.querySelectorAll('.vault-copy').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const item = state.vault.find(x=>x.id===btn.getAttribute('data-id'));
+      if(item) copyText(item.secret);
+    });
+  });
+  body.querySelectorAll('.vault-delete').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.vault = state.vault.filter(x=>x.id!==btn.getAttribute('data-id'));
+      saveState(); renderVault(); renderDashboard();
+    });
+  });
+}
+document.getElementById('addVaultBtn')?.addEventListener('click', ()=>{
+  const nameInput = document.getElementById('vaultName');
+  const secretInput = document.getElementById('vaultSecret');
+  const name = (nameInput?.value || '').trim();
+  const secret = (secretInput?.value || '').trim();
+  if(!name || !secret) return;
+  state.vault.push({ id:uid(), name, secret });
+  if(nameInput) nameInput.value=''; if(secretInput) secretInput.value='';
+  saveState(); renderVault(); renderDashboard(); toast(t('vaultAdded'));
+});
+document.getElementById('vaultSearch')?.addEventListener('input', e=>{ vaultSearchTerm = e.target.value; renderVault(); });
+
+/* =====================================================================================
+   NOTES MODULE — multiple auto-saving notes
+   ===================================================================================== */
+let notesSearchTerm = '';
+let noteSaveTimer = null;
+function renderNotesSidebar(){
+  const host = document.getElementById('noteListSidebar');
+  if(!host) return;
+  const filtered = state.notes.filter(n => (n.title+n.body).toLowerCase().includes(notesSearchTerm.toLowerCase()))
+    .sort((a,b)=> b.updatedAt - a.updatedAt);
+  host.innerHTML = filtered.map(n => `
+    <div class="nav-item ${state.activeNoteId===n.id?'active':''}" data-note="${n.id}">
+      <i class="fa-regular fa-file-lines w-4"></i>
+      <span class="truncate text-sm">${escapeHtml(n.title || t('noteTitlePlaceholder'))}</span>
+    </div>`).join('');
+  host.querySelectorAll('[data-note]').forEach(el=>{
+    el.addEventListener('click', ()=>{ state.activeNoteId = el.getAttribute('data-note'); saveState(); renderNotesEditor(); renderNotesSidebar(); });
+  });
+}
+function renderNotesEditor(){
+  const titleInput = document.getElementById('noteTitleInput');
+  const bodyInput = document.getElementById('noteBodyInput');
+  const note = state.notes.find(n=>n.id===state.activeNoteId);
+  if(titleInput) titleInput.value = note?.title || '';
+  if(bodyInput) bodyInput.value = note?.body || '';
+  const disabled = !note;
+  [titleInput, bodyInput, document.getElementById('deleteNoteBtn')].forEach(el=>{ if(el) el.disabled = disabled; });
+}
+document.getElementById('newNoteBtn')?.addEventListener('click', ()=>{
+  const note = { id:uid(), title:'', body:'', updatedAt:Date.now() };
+  state.notes.unshift(note);
+  state.activeNoteId = note.id;
+  saveState(); renderNotesSidebar(); renderNotesEditor();
+  document.getElementById('noteTitleInput')?.focus();
+});
+document.getElementById('deleteNoteBtn')?.addEventListener('click', ()=>{
+  state.notes = state.notes.filter(n=>n.id!==state.activeNoteId);
+  state.activeNoteId = state.notes[0]?.id || null;
+  saveState(); renderNotesSidebar(); renderNotesEditor();
+});
+function saveActiveNote(){
+  const note = state.notes.find(n=>n.id===state.activeNoteId);
+  if(!note) return;
+  note.title = document.getElementById('noteTitleInput')?.value || '';
+  note.body = document.getElementById('noteBodyInput')?.value || '';
+  note.updatedAt = Date.now();
+  clearTimeout(noteSaveTimer);
+  noteSaveTimer = setTimeout(()=>{
+    saveState(); renderNotesSidebar();
+    const lbl = document.getElementById('notesSavedLabel');
+    if(lbl) lbl.textContent = t('notesSaved') + ' · ' + new Date().toLocaleTimeString();
+  }, 300);
+}
+document.getElementById('noteTitleInput')?.addEventListener('input', saveActiveNote);
+document.getElementById('noteBodyInput')?.addEventListener('input', saveActiveNote);
+document.getElementById('notesSearch')?.addEventListener('input', e=>{ notesSearchTerm = e.target.value; renderNotesSidebar(); });
+
+/* =====================================================================================
+   SETTINGS MODULE
+   ===================================================================================== */
+function renderSettings(){
+  const swatchHost = document.getElementById('themeSwatches');
+  if(swatchHost){
+    swatchHost.innerHTML = Object.entries(THEME_META).map(([key,meta]) => `
+      <button class="theme-swatch ${state.settings.theme===key?'active':''}" style="background:${meta.bg}; box-shadow: inset 0 0 0 2px ${meta.accent}" data-theme="${key}" title="${key}"></button>`).join('');
+    swatchHost.querySelectorAll('[data-theme]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{ state.settings.theme = btn.getAttribute('data-theme'); saveState(); applyTheme(); renderSettings(); });
+    });
+  }
+  document.querySelectorAll('.lang-btn').forEach(btn=>{
+    const active = btn.getAttribute('data-lang') === state.settings.lang;
+    btn.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+    btn.style.color = active ? 'var(--accent)' : '';
+  });
+  const idHost = document.getElementById('authIdList');
+  if(idHost){
+    idHost.innerHTML = state.auth.authorizedIds.map(id => `
+      <span class="card-2 px-3 py-1.5 rounded-full text-sm flex items-center gap-2">${escapeHtml(id)}
+        <button class="auth-id-remove text-dim hover:text-red-400" data-id="${escapeHtml(id)}"><i class="fa-solid fa-xmark"></i></button>
+      </span>`).join('');
+    idHost.querySelectorAll('.auth-id-remove').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        if(state.auth.authorizedIds.length <= 1) return;
+        state.auth.authorizedIds = state.auth.authorizedIds.filter(x=>x!==btn.getAttribute('data-id'));
+        saveState(); renderSettings(); toast(t('idRemoved'));
+      });
+    });
+  }
+}
+document.querySelectorAll('.lang-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{ state.settings.lang = btn.getAttribute('data-lang'); saveState(); applyI18n(); renderAll(); });
+});
+document.getElementById('gateLangToggle')?.addEventListener('click', ()=>{
+  state.settings.lang = state.settings.lang === 'en' ? 'uz' : 'en'; saveState(); applyI18n();
+});
+document.getElementById('addAuthIdBtn')?.addEventListener('click', ()=>{
+  const input = document.getElementById('newAuthId');
+  const val = (input?.value || '').trim();
+  if(!val) return;
+  if(state.auth.authorizedIds.map(x=>x.toLowerCase()).includes(val.toLowerCase())){ toast(t('idExists'),'danger'); return; }
+  state.auth.authorizedIds.push(val);
+  if(input) input.value='';
+  saveState(); renderSettings(); toast(t('idAdded'));
+});
+
+/* ---------------------------- Export / Import / Wipe ---------------------------- */
+document.getElementById('exportBtn')?.addEventListener('click', ()=>{
+  try{
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `klin-backup-${todayStr()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast(t('exported'));
+  }catch(e){ console.error(e); toast(t('saveError'),'danger'); }
+});
+document.getElementById('importBtn')?.addEventListener('click', ()=> document.getElementById('importFile')?.click());
+document.getElementById('importFile')?.addEventListener('change', e=>{
+  const file = e.target.files?.[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const parsed = JSON.parse(reader.result);
+      const required = ['auth','settings','tasks','projects','vault','notes','water','reminders'];
+      const valid = required.every(k => Object.prototype.hasOwnProperty.call(parsed, k));
+      if(!valid) throw new Error('Missing required keys');
+      state = coerceState(parsed);
+      saveState();
+      applyTheme(); applyI18n(); renderAll();
+      toast(t('imported'));
+    }catch(err){ console.error('KLIN import error:', err); toast(t('importFailed'),'danger'); }
+    e.target.value = '';
+  };
+  reader.onerror = () => { toast(t('importFailed'),'danger'); };
+  reader.readAsText(file);
+});
+document.getElementById('wipeBtn')?.addEventListener('click', ()=>{
+  if(!confirm(t('confirmWipe'))) return;
+  state = defaultState();
+  saveState(); applyTheme(); applyI18n(); renderAll();
+  toast(t('wiped'));
+});
+
+/* =====================================================================================
+   CLOCK + ALARM/REMINDER/TASK/WATER TICK ENGINE
+   ===================================================================================== */
+function tickClock(){ const el = document.getElementById('clockLine'); if(el) el.textContent = new Date().toLocaleTimeString(); }
+setInterval(tickClock, 1000);
+
+function checkAllTriggers(){
+  if(ringingContext) return; // don't stack rings — one at a time
+  const now = new Date();
+
+  // --- Reminders (silent toast/notification, not a full ring) ---
+  let remindersChanged = false;
+  state.reminders.forEach(r=>{
+    if(!r.notified && new Date(r.datetime).getTime() <= Date.now()){
+      r.notified = true; remindersChanged = true;
+      const msg = `${t('reminderDue')}: ${r.title}`;
+      if('Notification' in window && Notification.permission === 'granted'){ try{ new Notification('KLIN', { body:msg }); }catch(e){ toast(msg); } }
+      else toast(msg);
+    }
+  });
+  if(remindersChanged){ saveState(); if(currentView==='reminders') renderReminders(); if(currentView==='dashboard') renderDashboard(); }
+
+  // --- Task alarms (full ring) ---
+  const dueTask = state.tasks.find(x => x.alarmAt && !x.alarmFired && new Date(x.alarmAt).getTime() <= Date.now());
+  if(dueTask){ dueTask.alarmFired = true; saveState(); renderTasks(); showRingingOverlay(t('taskAlarmRinging'), dueTask.text, ''); return; }
+
+  // --- Water alarm (interval-based) ---
+  if(state.water.alarmEnabled){
+    const dueMs = state.water.intervalHours * 3600000;
+    if(Date.now() - state.water.lastAlarmAt >= dueMs){
+      state.water.lastAlarmAt = Date.now();
+      saveState();
+      showRingingOverlay(t('waterAlarmRinging'), t('waterTitle'), state.water.toneId);
+      return;
+    }
+  }
+
+  // --- Standalone Alarms (phone-style, full ring) ---
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  const nowKey = `${todayStr()}T${hh}:${mm}`;
+  let alarmsChanged = false;
+  for(const a of state.alarms){
+    if(!a.enabled) continue;
+    if(a.time !== `${hh}:${mm}`) continue;
+    if(a.lastFiredKey === nowKey) continue;
+    const daysMatch = !a.days || !a.days.length || a.days.includes(now.getDay());
+    if(!daysMatch) continue;
+    a.lastFiredKey = nowKey;
+    if(!a.days || !a.days.length){ a.enabled = false; } // one-time alarms auto-disable after firing
+    alarmsChanged = true;
+    showRingingOverlay(t('alarmsTitle'), a.label, a.toneId);
+    break;
+  }
+  if(alarmsChanged){ saveState(); renderAlarms(); }
+}
+setInterval(checkAllTriggers, 5000);
+
+/* =====================================================================================
+   PWA: Inline Manifest + Icon + Service Worker Registration
+   ===================================================================================== */
+function setupPWA(){
+  const manifest = {
+    name: 'KLIN — Personal Command Center', short_name: 'KLIN',
+    start_url: './index.html', display: 'standalone',
+    background_color: THEME_META[state.settings.theme]?.bg || '#0A0F1E',
+    theme_color: THEME_META[state.settings.theme]?.bg || '#0A0F1E',
+    icons: [{ src: iconDataUrl(192), sizes:'192x192', type:'image/png' }, { src: iconDataUrl(512), sizes:'512x512', type:'image/png' }]
+  };
+  try{
+    const blob = new Blob([JSON.stringify(manifest)], { type:'application/json' });
+    document.getElementById('manifestLink')?.setAttribute('href', URL.createObjectURL(blob));
+  }catch(e){ console.error('KLIN: manifest generation failed', e); }
+  document.getElementById('appleTouchIcon')?.setAttribute('href', iconDataUrl(180));
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(err=> console.warn('KLIN: service worker registration skipped/failed', err));
+    });
+  }
+}
+function iconDataUrl(size){
+  try{
+    const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const accent = THEME_META[state.settings.theme]?.accent || '#3B82F6';
+    const bg = THEME_META[state.settings.theme]?.bg || '#0A0F1E';
+    ctx.fillStyle = bg; ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(size/2, size/2, size*0.22, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = accent; ctx.lineWidth = size*0.045;
+    ctx.beginPath(); ctx.arc(size/2, size/2, size*0.36, 0, Math.PI*2); ctx.stroke();
+    return canvas.toDataURL('image/png');
+  }catch(e){ return ''; }
+}
+
+/* =====================================================================================
+   MASTER RENDER + INIT
+   ===================================================================================== */
+function renderAll(){
+  renderDashboard(); renderTasks(); renderProjects(); renderWater();
+  renderRingtoneList(); populateAllToneSelects(); renderAlarmDayPicker([]); renderAlarms();
+  renderReminders(); renderFinance(); renderVariables(); renderVault();
+  renderNotesSidebar(); renderNotesEditor();
+  renderSettings(); renderSidebar(); renderBottomNav();
+  renderPhaseInputRows();
+  if(!document.getElementById('envInputRows')?.children.length) addEnvInputRow();
+}
+
+document.getElementById('loginBtn')?.addEventListener('click', attemptLogin);
+document.getElementById('loginId')?.addEventListener('keydown', e=>{ if(e.key==='Enter') attemptLogin(); });
+document.getElementById('logoutBtn')?.addEventListener('click', logout);
+
+(function init(){
+  applyTheme();
+  applyI18n();
+  setupPWA();
+  tickClock();
+  switchView('dashboard');
+  if(isLoggedIn()){ showApp(); }
+})();
+</script>
+</body>
+</html>
