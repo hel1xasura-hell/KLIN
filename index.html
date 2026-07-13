@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="navy">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<title>KLIN — Personal Command Center</title>
+
+<!-- ============================= PWA / iOS Home Screen Meta ============================= -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KLIN">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0B1120">
+<meta name="description" content="KLIN — offline-first personal command center for projects, tasks, hydration, reminders and credentials.">
+<link id="appleTouchIcon" rel="apple-touch-icon" href="">
+<link id="manifestLink" rel="manifest" href="">
+
+<!-- ============================= External CDN Assets ============================= -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  /* ===================================================================================
+     DESIGN TOKENS
+     Four selectable themes, each swapped via [data-theme] on <html>.
+     "navy"     -> deep indigo/navy base, electric blue accent
+     "oled"     -> true black (OLED-friendly), emerald accent
+     "charcoal" -> warm charcoal, violet accent
+     "slate"    -> cool slate, amber accent
+     =================================================================================== */
+  :root{
+    --font-display:'Sora',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+  }
+  html[data-theme="navy"]{
+    --bg:#0A0F1E; --surface:#111A2E; --surface-2:#16213A; --border:#22304F;
+    --accent:#3B82F6; --accent-2:#60A5FA; --accent-rgb:59,130,246;
+    --text:#E7ECF6; --text-dim:#8B97B4; --danger:#F87171; --success:#34D399;
+  }
+  html[data-theme="oled"]{
+    --bg:#000000; --surface:#0C0C0C; --surface-2:#141414; --border:#242424;
+    --accent:#10B981; --accent-2:#34D399; --accent-rgb:16,185,129;
+    --text:#EDEDED; --text-dim:#8A8A8A; --danger:#F87171; --success:#34D399;
+  }
+  html[data-theme="charcoal"]{
+    --bg:#18171C; --surface:#211F27; --surface-2:#2A2732; --border:#38343F;
+    --accent:#A78BFA; --accent-2:#C4B5FD; --accent-rgb:167,139,250;
+    --text:#EDEBF2; --text-dim:#9A93A8; --danger:#F87171; --success:#34D399;
+  }
+  html[data-theme="slate"]{
+    --bg:#151B26; --surface:#1D2530; --surface-2:#252F3D; --border:#334053;
+    --accent:#F59E0B; --accent-2:#FBBF24; --accent-rgb:245,158,11;
+    --text:#EAEEF5; --text-dim:#8D99AC; --danger:#F87171; --success:#34D399;
+  }
+
+  *{ -webkit-tap-highlight-color:transparent; }
+  html,body{ background:var(--bg); color:var(--text); font-family:var(--font-body); scroll-behavior:smooth; overscroll-behavior:none; }
+  h1,h2,h3,.font-display{ font-family:var(--font-display); }
+  .font-mono{ font-family:var(--font-mono); }
+
+  .bg-surface{ background:var(--surface); }
+  .bg-surface-2{ background:var(--surface-2); }
+  .border-token{ border-color:var(--border); }
+  .text-dim{ color:var(--text-dim); }
+  .text-accent{ color:var(--accent); }
+  .bg-accent{ background:var(--accent); }
+  .ring-accent{ --tw-ring-color:var(--accent); }
+
+  /* Signature element: the pulsing "system status" node in the sidebar header */
+  .pulse-node{ position:relative; width:10px; height:10px; border-radius:999px; background:var(--accent); }
+  .pulse-node::after{
+    content:''; position:absolute; inset:-6px; border-radius:999px;
+    border:1px solid var(--accent); opacity:.6; animation:pulseRing 2.2s ease-out infinite;
+  }
+  @keyframes pulseRing{ 0%{ transform:scale(.6); opacity:.7;} 100%{ transform:scale(2.1); opacity:0;} }
+
+  /* Card */
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:16px; }
+  .card-2{ background:var(--surface-2); border:1px solid var(--border); border-radius:12px; }
+
+  /* Buttons */
+  .btn-accent{ background:var(--accent); color:#0a0a0a; font-weight:600; transition:filter .15s, transform .1s; }
+  .btn-accent:hover{ filter:brightness(1.1); }
+  .btn-accent:active{ transform:scale(.97); }
+  .btn-ghost{ background:transparent; border:1px solid var(--border); color:var(--text); transition:background .15s; }
+  .btn-ghost:hover{ background:var(--surface-2); }
+
+  /* Nav item */
+  .nav-item{ display:flex; align-items:center; gap:.75rem; padding:.65rem .9rem; border-radius:12px; color:var(--text-dim); font-weight:500; transition:all .15s; cursor:pointer; }
+  .nav-item:hover{ background:var(--surface-2); color:var(--text); }
+  .nav-item.active{ background:linear-gradient(90deg, rgba(var(--accent-rgb),.18), rgba(var(--accent-rgb),.02)); color:var(--text); box-shadow:inset 3px 0 0 var(--accent); }
+
+  /* View transition */
+  .view{ display:none; animation:fadeSlideIn .35s ease both; }
+  .view.active{ display:block; }
+  @keyframes fadeSlideIn{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+
+  /* Progress bar */
+  .progress-track{ background:var(--surface-2); border:1px solid var(--border); border-radius:999px; overflow:hidden; }
+  .progress-fill{ height:100%; background:linear-gradient(90deg, var(--accent), var(--accent-2)); transition:width .5s cubic-bezier(.4,0,.2,1); }
+  .progress-fill.complete{ background:linear-gradient(90deg,#34D399,#6EE7B7); box-shadow:0 0 14px 1px rgba(52,211,153,.7); }
+
+  /* Water gauge */
+  .gauge-wrap{ position:relative; width:180px; height:180px; margin:0 auto; }
+  .gauge-wrap svg{ transform:rotate(-90deg); }
+  .gauge-bg{ fill:none; stroke:var(--surface-2); stroke-width:12; }
+  .gauge-fg{ fill:none; stroke:var(--accent); stroke-width:12; stroke-linecap:round; transition:stroke-dashoffset .6s cubic-bezier(.4,0,.2,1); }
+
+  /* Checkbox custom */
+  input[type="checkbox"].chk{ appearance:none; width:20px; height:20px; border:2px solid var(--border); border-radius:6px; display:inline-grid; place-content:center; cursor:pointer; flex-shrink:0; background:var(--surface-2); }
+  input[type="checkbox"].chk::after{ content:''; width:11px; height:11px; border-radius:3px; transform:scale(0); transition:.12s transform ease-in-out; background:var(--accent); }
+  input[type="checkbox"].chk:checked::after{ transform:scale(1); }
+  input[type="checkbox"].chk:checked{ border-color:var(--accent); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb{ background:var(--border); border-radius:99px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+
+  /* Bottom mobile nav */
+  .bottom-nav{ background:var(--surface); border-top:1px solid var(--border); }
+  .bottom-item{ color:var(--text-dim); }
+  .bottom-item.active{ color:var(--accent); }
+
+  /* Toast */
+  #toastHost{ position:fixed; top:1rem; right:1rem; z-index:9999; display:flex; flex-direction:column; gap:.5rem; }
+  .toast{ background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--accent); border-radius:10px; padding:.75rem 1rem; min-width:240px; max-width:340px; box-shadow:0 10px 30px rgba(0,0,0,.4); animation:toastIn .25s ease both; font-size:.875rem; }
+  .toast.danger{ border-left-color:var(--danger); }
+  @keyframes toastIn{ from{opacity:0; transform:translateX(20px);} to{opacity:1; transform:translateX(0);} }
+
+  /* Login gateway */
+  #loginGate{ position:fixed; inset:0; z-index:9998; background:var(--bg); display:flex; align-items:center; justify-content:center; }
+  /* Higher-specificity override: an ID selector beats a plain .hidden utility class,
+     so without this rule toggling .hidden on #loginGate would never actually hide it. */
+  #loginGate.hidden{ display:none !important; }
+  .gate-grid{ background-image:linear-gradient(rgba(var(--accent-rgb),.07) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--accent-rgb),.07) 1px, transparent 1px); background-size:34px 34px; }
+
+  .badge-dev{ background:rgba(var(--accent-rgb),.15); color:var(--accent); }
+  .badge-complete{ background:rgba(52,211,153,.15); color:#34D399; box-shadow:0 0 12px rgba(52,211,153,.35); }
+
+  input.field, textarea.field, select.field{ background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:.6rem .85rem; width:100%; outline:none; transition:border-color .15s; }
+  input.field:focus, textarea.field:focus, select.field:focus{ border-color:var(--accent); }
+  input.field::placeholder, textarea.field::placeholder{ color:var(--text-dim); }
+
+  a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
+  }
+
+  .theme-swatch{ width:34px; height:34px; border-radius:10px; cursor:pointer; border:2px solid transparent; }
+  .theme-swatch.active{ border-color:var(--text); }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div id="toastHost"></div>
+
+<!-- ============================= LOGIN GATEWAY ============================= -->
+<div id="loginGate">
+  <div class="gate-grid absolute inset-0 opacity-60 pointer-events-none"></div>
+  <div class="card relative z-10 w-[92%] max-w-sm p-8">
+    <div class="flex items-center gap-3 mb-1">
+      <div class="pulse-node"></div>
+      <span class="text-xs text-dim tracking-widest uppercase font-mono" data-i18n="systemStatus">System Standby</span>
+    </div>
+    <h1 class="font-display text-2xl font-bold mt-3 mb-1" data-i18n="gateTitle">Secure Access</h1>
+    <p class="text-dim text-sm mb-6" data-i18n="gateSubtitle">Enter your authorized access ID to continue.</p>
+
+    <label class="text-xs text-dim mb-1 block" data-i18n="accessIdLabel">Access ID</label>
+    <input id="loginId" class="field mb-4" type="text" autocomplete="off" placeholder="admin">
+
+    <label class="flex items-center gap-2 mb-6 cursor-pointer select-none">
+      <input id="rememberMe" type="checkbox" class="chk">
+      <span class="text-sm text-dim" data-i18n="rememberSession">Remember this session</span>
+    </label>
+
+    <button id="loginBtn" class="btn-accent w-full py-2.5 rounded-xl" data-i18n="loginBtn">Log In</button>
+    <p id="loginError" class="text-xs mt-3 hidden" style="color:var(--danger)" data-i18n="loginError">Access ID not recognized.</p>
+
+    <div class="flex items-center justify-between mt-6">
+      <button id="gateLangToggle" class="text-xs text-dim font-mono flex items-center gap-1">
+        <i class="fa-solid fa-globe"></i> <span id="gateLangLabel">EN / UZ</span>
+      </button>
+      <span class="text-[11px] text-dim font-mono" data-i18n="masterHint">default: admin</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= APP SHELL ============================= -->
+<div id="appShell" class="hidden min-h-screen md:flex">
+
+  <!-- ===== Desktop Sidebar ===== -->
+  <aside class="hidden md:flex md:flex-col w-64 shrink-0 border-r border-token bg-surface sticky top-0 h-screen">
+    <div class="p-5 border-b border-token">
+      <div class="flex items-center gap-2">
+        <div class="pulse-node"></div>
+        <span class="font-display font-bold text-lg tracking-tight">KLIN</span>
+      </div>
+      <p class="text-[11px] text-dim font-mono mt-1" id="clockLine">--:--:--</p>
+    </div>
+    <nav class="flex-1 overflow-y-auto p-3 space-y-1" id="sidebarNav"></nav>
+    <div class="p-3 border-t border-token">
+      <button id="logoutBtn" class="nav-item w-full">
+        <i class="fa-solid fa-arrow-right-from-bracket w-4"></i>
+        <span data-i18n="logout">Log out</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ===== Main Content ===== -->
+  <main class="flex-1 min-w-0 pb-24 md:pb-0">
+    <!-- Mobile top bar -->
+    <div class="md:hidden sticky top-0 z-40 bg-surface border-b border-token px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="pulse-node"></div>
+        <span class="font-display font-bold">KLIN</span>
+      </div>
+      <button id="mobileMenuBtn" class="btn-ghost w-9 h-9 rounded-lg"><i class="fa-solid fa-bars"></i></button>
+    </div>
+
+    <!-- Mobile slide-down menu (settings/logout/lang) -->
+    <div id="mobileMenu" class="md:hidden hidden bg-surface border-b border-token px-4 py-3 space-y-2"></div>
+
+    <div class="p-4 md:p-8 max-w-6xl mx-auto">
+
+      <!-- ================= DASHBOARD ================= -->
+      <section id="view-dashboard" class="view">
+        <header class="mb-6">
+          <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="dashTitle">Dashboard</h2>
+          <p class="text-dim text-sm mt-1" data-i18n="dashSubtitle">A snapshot of everything in motion.</p>
+        </header>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4" id="statGrid"></div>
+
+        <div class="grid md:grid-cols-2 gap-4 mt-6">
+          <div class="card p-5">
+            <h3 class="font-display font-semibold mb-3" data-i18n="upcomingReminders">Upcoming Reminders</h3>
+            <div id="dashReminders" class="space-y-2 text-sm"></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-display font-semibold mb-3" data-i18n="activeProjectsList">Active Projects</h3>
+            <div id="dashProjects" class="space-y-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TASKS ================= -->
+      <section id="view-tasks" class="view">
+        <header class="mb-6">
+          <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="tasksTitle">To-Do Matrix</h2>
+          <p class="text-dim text-sm mt-1" data-i18n="tasksSubtitle">Add, toggle, and filter your workflow.</p>
+        </header>
+        <div class="card p-4 md:p-5">
+          <div class="flex gap-2 mb-4">
+            <input id="taskInput" class="field" type="text" data-i18n-ph="taskPlaceholder" placeholder="What needs doing?">
+            <button id="taskAddBtn" class="btn-accent px-4 rounded-xl shrink-0"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <div class="flex gap-2 mb-4 text-sm" id="taskFilters">
+            <button data-filter="all" class="filter-btn btn-ghost px-3 py-1 rounded-lg" data-i18n="filterAll">All</button>
+            <button data-filter="active" class="filter-btn btn-ghost px-3 py-1 rounded-lg" data-i18n="filterActive">Active</button>
+            <button data-filter="completed" class="filter-btn btn-ghost px-3 py-1 rounded-lg" data-i18n="filterCompleted">Completed</button>
+            <button id="clearCompletedBtn" class="ml-auto text-xs text-dim hover:text-red-400" data-i18n="clearCompleted">Clear completed</button>
+          </div>
+          <div id="taskList" class="space-y-2"></div>
+          <p id="taskEmpty" class="text-dim text-sm text-center py-6 hidden" data-i18n="noTasks">No tasks yet — add your first one above.</p>
+        </div>
+      </section>
+
+      <!-- ================= PROJECTS ================= -->
+      <section id="view-projects" class="view">
+        <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="projectsTitle">Project Phases</h2>
+            <p class="text-dim text-sm mt-1" data-i18n="projectsSubtitle">Track live progress across every build.</p>
+          </div>
+          <input id="projectSearch" class="field max-w-xs" type="text" data-i18n-ph="searchPlaceholder" placeholder="Search projects...">
+        </header>
+
+        <div class="card p-4 md:p-5 mb-5">
+          <div class="grid md:grid-cols-2 gap-3">
+            <input id="newProjectName" class="field" type="text" data-i18n-ph="projectNamePlaceholder" placeholder="Project name">
+            <input id="newProjectPhases" class="field" type="text" data-i18n-ph="phasesPlaceholder" placeholder="Phases, comma-separated (e.g. Design, Build, Test, Ship)">
+          </div>
+          <button id="addProjectBtn" class="btn-accent mt-3 px-4 py-2 rounded-xl text-sm"><i class="fa-solid fa-plus mr-1"></i><span data-i18n="createProject">Create project</span></button>
+        </div>
+
+        <div id="projectList" class="space-y-4"></div>
+        <p id="projectEmpty" class="text-dim text-sm text-center py-6 hidden" data-i18n="noProjects">No projects yet — create one above.</p>
+      </section>
+
+      <!-- ================= WATER ================= -->
+      <section id="view-water" class="view">
+        <header class="mb-6">
+          <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="waterTitle">Hydration Log</h2>
+          <p class="text-dim text-sm mt-1" data-i18n="waterSubtitle">Resets automatically at the start of each day.</p>
+        </header>
+        <div class="card p-6 md:p-8 flex flex-col items-center">
+          <div class="gauge-wrap">
+            <svg width="180" height="180" viewBox="0 0 180 180">
+              <circle class="gauge-bg" cx="90" cy="90" r="78"></circle>
+              <circle class="gauge-fg" id="gaugeFg" cx="90" cy="90" r="78" stroke-dasharray="490" stroke-dashoffset="490"></circle>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="waterMlLabel" class="font-display text-2xl font-bold">0</span>
+              <span class="text-dim text-xs font-mono" id="waterTargetLabel">/ 2000 ml</span>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-3 mt-6 justify-center">
+            <button class="water-add btn-ghost px-4 py-2 rounded-xl text-sm" data-ml="250"><i class="fa-solid fa-droplet mr-1"></i>+250ml</button>
+            <button class="water-add btn-ghost px-4 py-2 rounded-xl text-sm" data-ml="240"><i class="fa-solid fa-mug-hot mr-1"></i>+1 <span data-i18n="cup">Cup</span></button>
+            <button class="water-add btn-ghost px-4 py-2 rounded-xl text-sm" data-ml="500"><i class="fa-solid fa-bottle-water mr-1"></i>+500ml</button>
+            <button id="waterResetBtn" class="btn-ghost px-4 py-2 rounded-xl text-sm text-red-300"><i class="fa-solid fa-rotate-left mr-1"></i><span data-i18n="reset">Reset</span></button>
+          </div>
+          <div class="w-full max-w-xs mt-6">
+            <label class="text-xs text-dim block mb-1" data-i18n="dailyTarget">Daily target (ml)</label>
+            <input id="waterTargetInput" type="number" class="field" min="250" step="250" value="2000">
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= REMINDERS ================= -->
+      <section id="view-reminders" class="view">
+        <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="remindersTitle">Reminders &amp; Countdowns</h2>
+            <p class="text-dim text-sm mt-1" data-i18n="remindersSubtitle">Sorted chronologically, updating live.</p>
+          </div>
+          <input id="reminderSearch" class="field max-w-xs" type="text" data-i18n-ph="searchPlaceholder" placeholder="Search reminders...">
+        </header>
+
+        <div class="card p-4 md:p-5 mb-5">
+          <div class="grid md:grid-cols-[1fr_auto_auto] gap-3">
+            <input id="reminderTitle" class="field" type="text" data-i18n-ph="reminderTitlePlaceholder" placeholder="Reminder title">
+            <input id="reminderDate" class="field" type="datetime-local">
+            <button id="addReminderBtn" class="btn-accent px-4 py-2 rounded-xl text-sm"><i class="fa-solid fa-bell mr-1"></i><span data-i18n="addReminder">Add</span></button>
+          </div>
+          <p class="text-xs text-dim mt-2" data-i18n="notifyHint">Add KLIN to your Home Screen to receive alerts even when the browser tab isn't focused.</p>
+          <button id="enableNotifsBtn" class="btn-ghost mt-2 px-3 py-1.5 rounded-lg text-xs"><i class="fa-regular fa-bell mr-1"></i><span data-i18n="enableNotifs">Enable notifications</span></button>
+        </div>
+
+        <div id="reminderList" class="space-y-3"></div>
+        <p id="reminderEmpty" class="text-dim text-sm text-center py-6 hidden" data-i18n="noReminders">No reminders scheduled.</p>
+      </section>
+
+      <!-- ================= VAULT & NOTES ================= -->
+      <section id="view-vault" class="view">
+        <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="vaultTitle">Key Vault &amp; Notes</h2>
+            <p class="text-dim text-sm mt-1" data-i18n="vaultSubtitle">Locally stored credentials and a live scratchpad.</p>
+          </div>
+          <input id="vaultSearch" class="field max-w-xs" type="text" data-i18n-ph="searchPlaceholder" placeholder="Search vault...">
+        </header>
+
+        <div class="grid lg:grid-cols-2 gap-5">
+          <div class="card p-4 md:p-5">
+            <div class="grid grid-cols-[1fr_1fr_auto] gap-2 mb-3">
+              <input id="vaultName" class="field" type="text" data-i18n-ph="vaultNamePlaceholder" placeholder="Name">
+              <input id="vaultSecret" class="field font-mono" type="text" data-i18n-ph="vaultSecretPlaceholder" placeholder="Secret / Key">
+              <button id="addVaultBtn" class="btn-accent px-3 rounded-xl"><i class="fa-solid fa-plus"></i></button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-dim text-left text-xs uppercase tracking-wide border-b border-token">
+                    <th class="py-2" data-i18n="colName">Name</th>
+                    <th class="py-2" data-i18n="colSecret">Secret</th>
+                    <th class="py-2 text-right" data-i18n="colActions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="vaultTableBody"></tbody>
+              </table>
+              <p id="vaultEmpty" class="text-dim text-sm text-center py-6 hidden" data-i18n="noVault">Vault is empty.</p>
+            </div>
+          </div>
+
+          <div class="card p-4 md:p-5 flex flex-col">
+            <h3 class="font-display font-semibold mb-2 flex items-center gap-2"><i class="fa-solid fa-note-sticky text-accent"></i><span data-i18n="scratchpad">Scratchpad</span></h3>
+            <textarea id="notesArea" class="field flex-1 min-h-[300px] font-mono text-sm" data-i18n-ph="notesPlaceholder" placeholder="Auto-saves as you type..."></textarea>
+            <p class="text-xs text-dim mt-2" id="notesSavedLabel"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SETTINGS ================= -->
+      <section id="view-settings" class="view">
+        <header class="mb-6">
+          <h2 class="font-display text-2xl md:text-3xl font-bold" data-i18n="settingsTitle">Settings</h2>
+          <p class="text-dim text-sm mt-1" data-i18n="settingsSubtitle">Appearance, language and data portability.</p>
+        </header>
+
+        <div class="card p-5 mb-5">
+          <h3 class="font-display font-semibold mb-3" data-i18n="themeLabel">Theme</h3>
+          <div class="flex gap-3 flex-wrap" id="themeSwatches"></div>
+        </div>
+
+        <div class="card p-5 mb-5">
+          <h3 class="font-display font-semibold mb-3" data-i18n="languageLabel">Language</h3>
+          <div class="flex gap-3">
+            <button class="lang-btn btn-ghost px-4 py-2 rounded-xl" data-lang="en">English</button>
+            <button class="lang-btn btn-ghost px-4 py-2 rounded-xl" data-lang="uz">Oʻzbekcha</button>
+          </div>
+        </div>
+
+        <div class="card p-5 mb-5">
+          <h3 class="font-display font-semibold mb-3" data-i18n="authorizedIds">Authorized Access IDs</h3>
+          <div class="flex gap-2 mb-3">
+            <input id="newAuthId" class="field" type="text" data-i18n-ph="newIdPlaceholder" placeholder="Add a new access ID">
+            <button id="addAuthIdBtn" class="btn-accent px-4 rounded-xl shrink-0"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <div id="authIdList" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <div class="card p-5">
+          <h3 class="font-display font-semibold mb-3" data-i18n="dataPortability">Data Portability</h3>
+          <p class="text-dim text-sm mb-4" data-i18n="dataPortabilityHint">Export a full backup, or import one to restore your data.</p>
+          <div class="flex flex-wrap gap-3">
+            <button id="exportBtn" class="btn-accent px-4 py-2 rounded-xl text-sm"><i class="fa-solid fa-download mr-1"></i><span data-i18n="exportData">Export data</span></button>
+            <button id="importBtn" class="btn-ghost px-4 py-2 rounded-xl text-sm"><i class="fa-solid fa-upload mr-1"></i><span data-i18n="importData">Import data</span></button>
+            <input id="importFile" type="file" accept="application/json" class="hidden">
+            <button id="wipeBtn" class="btn-ghost px-4 py-2 rounded-xl text-sm text-red-300"><i class="fa-solid fa-trash mr-1"></i><span data-i18n="wipeData">Wipe all data</span></button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ===== Mobile Bottom Nav ===== -->
+  <nav class="bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 flex justify-around py-2" id="bottomNav"></nav>
+</div>
+
+<script>
+/* =====================================================================================
+   KLIN — SELF-CONTAINED APPLICATION LOGIC
+   All state lives in localStorage under the key "klin_state_v1".
+   Defensive coding: every localStorage read/write and DOM lookup is guarded so a
+   corrupted value or missing node never throws an uncaught exception.
+   ===================================================================================== */
+
+const STORAGE_KEY = 'klin_state_v1';
+const SESSION_KEY = 'klin_session_v1';
+
+/* ---------------------------- Default State Schema ---------------------------- */
+function defaultState(){
+  return {
+    auth: { authorizedIds: ['admin'] },
+    settings: { theme: 'navy', lang: 'en' },
+    tasks: [],
+    projects: [],
+    vault: [],
+    notes: '',
+    water: { ml: 0, target: 2000, lastDate: todayStr() },
+    reminders: []
+  };
+}
+
+function todayStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+/* ---------------------------- Safe Storage Helpers ---------------------------- */
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    // Merge with defaults defensively so missing keys never break the app
+    const base = defaultState();
+    return {
+      auth: { authorizedIds: Array.isArray(parsed?.auth?.authorizedIds) && parsed.auth.authorizedIds.length ? parsed.auth.authorizedIds : base.auth.authorizedIds },
+      settings: { theme: parsed?.settings?.theme || base.settings.theme, lang: parsed?.settings?.lang || base.settings.lang },
+      tasks: Array.isArray(parsed?.tasks) ? parsed.tasks : [],
+      projects: Array.isArray(parsed?.projects) ? parsed.projects : [],
+      vault: Array.isArray(parsed?.vault) ? parsed.vault : [],
+      notes: typeof parsed?.notes === 'string' ? parsed.notes : '',
+      water: {
+        ml: Number.isFinite(parsed?.water?.ml) ? parsed.water.ml : 0,
+        target: Number.isFinite(parsed?.water?.target) ? parsed.water.target : 2000,
+        lastDate: parsed?.water?.lastDate || todayStr()
+      },
+      reminders: Array.isArray(parsed?.reminders) ? parsed.reminders : []
+    };
+  }catch(err){
+    console.error('KLIN: failed to load state, resetting.', err);
+    return defaultState();
+  }
+}
+
+function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(err){
+    console.error('KLIN: failed to save state', err);
+    toast(t('saveError') || 'Could not save data', 'danger');
+  }
+}
+
+let state = loadState();
+
+/* ---------------------------- Daily Water Reset ---------------------------- */
+(function checkWaterReset(){
+  if(state.water.lastDate !== todayStr()){
+    state.water.ml = 0;
+    state.water.lastDate = todayStr();
+    saveState();
+  }
+})();
+
+/* =====================================================================================
+   LOCALIZATION ENGINE
+   ===================================================================================== */
+const I18N = {
+  en:{
+    systemStatus:'System Standby', gateTitle:'Secure Access', gateSubtitle:'Enter your authorized access ID to continue.',
+    accessIdLabel:'Access ID', rememberSession:'Remember this session', loginBtn:'Log In',
+    loginError:'Access ID not recognized.', masterHint:'default: admin',
+    logout:'Log out', dashTitle:'Dashboard', dashSubtitle:'A snapshot of everything in motion.',
+    upcomingReminders:'Upcoming Reminders', activeProjectsList:'Active Projects',
+    tasksTitle:'To-Do Matrix', tasksSubtitle:'Add, toggle, and filter your workflow.',
+    taskPlaceholder:'What needs doing?', filterAll:'All', filterActive:'Active', filterCompleted:'Completed',
+    clearCompleted:'Clear completed', noTasks:'No tasks yet — add your first one above.',
+    projectsTitle:'Project Phases', projectsSubtitle:'Track live progress across every build.',
+    searchPlaceholder:'Search...', projectNamePlaceholder:'Project name',
+    phasesPlaceholder:'Phases, comma-separated (e.g. Design, Build, Test, Ship)', createProject:'Create project',
+    noProjects:'No projects yet — create one above.', inDevelopment:'In Development', completed:'Completed',
+    waterTitle:'Hydration Log', waterSubtitle:'Resets automatically at the start of each day.',
+    cup:'Cup', reset:'Reset', dailyTarget:'Daily target (ml)',
+    remindersTitle:'Reminders & Countdowns', remindersSubtitle:'Sorted chronologically, updating live.',
+    reminderTitlePlaceholder:'Reminder title', addReminder:'Add',
+    notifyHint:"Add KLIN to your Home Screen to receive alerts even when the browser tab isn't focused.",
+    enableNotifs:'Enable notifications', noReminders:'No reminders scheduled.', overdue:'Overdue!',
+    daysLeft:'days left', dayLeft:'day left', hoursLeft:'hours left', minsLeft:'min left', dueNow:'Due now',
+    vaultTitle:'Key Vault & Notes', vaultSubtitle:'Locally stored credentials and a live scratchpad.',
+    vaultNamePlaceholder:'Name', vaultSecretPlaceholder:'Secret / Key', colName:'Name', colSecret:'Secret',
+    colActions:'Actions', noVault:'Vault is empty.', scratchpad:'Scratchpad', notesPlaceholder:'Auto-saves as you type...',
+    settingsTitle:'Settings', settingsSubtitle:'Appearance, language and data portability.',
+    themeLabel:'Theme', languageLabel:'Language', authorizedIds:'Authorized Access IDs',
+    newIdPlaceholder:'Add a new access ID', dataPortability:'Data Portability',
+    dataPortabilityHint:'Export a full backup, or import one to restore your data.',
+    exportData:'Export data', importData:'Import data', wipeData:'Wipe all data',
+    statProjects:'Active Projects', statTasks:'Incomplete Tasks', statVault:'Stored Credentials', statWater:'Hydration Today',
+    copied:'Copied to clipboard', taskAdded:'Task added', taskRemoved:'Task removed', projectCreated:'Project created',
+    reminderAdded:'Reminder added', vaultAdded:'Credential saved', notesSaved:'Notes saved', exported:'Backup exported',
+    imported:'Data imported successfully', importFailed:'Import failed — invalid file format', wiped:'All data wiped',
+    confirmWipe:'This will permanently delete all local data. Continue?', confirmDeleteProject:'Delete this project?',
+    idExists:'That ID already exists', idAdded:'Access ID added', idRemoved:'Access ID removed',
+    reminderDue:'Reminder due', notifsEnabled:'Notifications enabled', notifsBlocked:'Notifications blocked by browser',
+    saveError:'Could not save data', loggedOut:'Logged out'
+  },
+  uz:{
+    systemStatus:'Tizim kutmoqda', gateTitle:'Xavfsiz kirish', gateSubtitle:'Davom etish uchun ruxsat etilgan ID kiriting.',
+    accessIdLabel:'Kirish ID', rememberSession:'Seansni eslab qolish', loginBtn:'Kirish',
+    loginError:'ID tanilmadi.', masterHint:'standart: admin',
+    logout:'Chiqish', dashTitle:'Boshqaruv paneli', dashSubtitle:'Barcha jarayonlarning umumiy koʻrinishi.',
+    upcomingReminders:'Yaqin eslatmalar', activeProjectsList:'Faol loyihalar',
+    tasksTitle:'Vazifalar jadvali', tasksSubtitle:'Vazifa qoʻshing, belgilang va saralang.',
+    taskPlaceholder:'Nima qilish kerak?', filterAll:'Barchasi', filterActive:'Faol', filterCompleted:'Bajarilgan',
+    clearCompleted:'Bajarilganlarni tozalash', noTasks:'Hali vazifa yoʻq — yuqorida birinchisini qoʻshing.',
+    projectsTitle:'Loyiha bosqichlari', projectsSubtitle:'Har bir loyihaning jonli progressini kuzating.',
+    searchPlaceholder:'Qidirish...', projectNamePlaceholder:'Loyiha nomi',
+    phasesPlaceholder:'Bosqichlar, vergul bilan (masalan: Dizayn, Qurish, Sinov, Chiqarish)', createProject:'Loyiha yaratish',
+    noProjects:'Hali loyiha yoʻq — yuqorida birini yarating.', inDevelopment:'Ishlab chiqilmoqda', completed:'Yakunlandi',
+    waterTitle:'Suv ichish jurnali', waterSubtitle:'Har kuni avtomatik nolga tushadi.',
+    cup:'Piyola', reset:'Qayta boshlash', dailyTarget:'Kunlik maqsad (ml)',
+    remindersTitle:'Eslatmalar va sanoq', remindersSubtitle:'Vaqt boʻyicha saralangan, jonli yangilanadi.',
+    reminderTitlePlaceholder:'Eslatma nomi', addReminder:'Qoʻshish',
+    notifyHint:'Brauzer yopiq boʻlsa ham bildirishnoma olish uchun KLIN-ni Bosh ekranga qoʻshing.',
+    enableNotifs:'Bildirishnomalarni yoqish', noReminders:'Rejalashtirilgan eslatma yoʻq.', overdue:'Muddati oʻtgan!',
+    daysLeft:'kun qoldi', dayLeft:'kun qoldi', hoursLeft:'soat qoldi', minsLeft:'daqiqa qoldi', dueNow:'Hozir vaqti keldi',
+    vaultTitle:'Kalitlar ombori va qaydlar', vaultSubtitle:'Lokal saqlangan maʼlumotlar va jonli qoralama.',
+    vaultNamePlaceholder:'Nomi', vaultSecretPlaceholder:'Maxfiy kalit', colName:'Nomi', colSecret:'Kalit',
+    colActions:'Amallar', noVault:'Ombor boʻsh.', scratchpad:'Qoralama', notesPlaceholder:'Yozganingizda avtomatik saqlanadi...',
+    settingsTitle:'Sozlamalar', settingsSubtitle:'Koʻrinish, til va maʼlumotlarni koʻchirish.',
+    themeLabel:'Mavzu', languageLabel:'Til', authorizedIds:'Ruxsat etilgan ID lar',
+    newIdPlaceholder:'Yangi ID qoʻshish', dataPortability:'Maʼlumotlarni koʻchirish',
+    dataPortabilityHint:'Toʻliq zaxira nusxa oling yoki tiklash uchun import qiling.',
+    exportData:'Eksport qilish', importData:'Import qilish', wipeData:'Barchasini oʻchirish',
+    statProjects:'Faol loyihalar', statTasks:'Bajarilmagan vazifalar', statVault:'Saqlangan kalitlar', statWater:'Bugungi suv',
+    copied:'Nusxa olindi', taskAdded:'Vazifa qoʻshildi', taskRemoved:'Vazifa oʻchirildi', projectCreated:'Loyiha yaratildi',
+    reminderAdded:'Eslatma qoʻshildi', vaultAdded:'Maʼlumot saqlandi', notesSaved:'Qaydlar saqlandi', exported:'Zaxira nusxa yuklandi',
+    imported:'Maʼlumot muvaffaqiyatli import qilindi', importFailed:'Import xato — notoʻgʻri fayl formati', wiped:'Barcha maʼlumot oʻchirildi',
+    confirmWipe:'Bu barcha lokal maʼlumotlarni butunlay oʻchiradi. Davom etasizmi?', confirmDeleteProject:'Bu loyiha oʻchirilsinmi?',
+    idExists:'Bu ID allaqachon mavjud', idAdded:'Kirish ID qoʻshildi', idRemoved:'Kirish ID oʻchirildi',
+    reminderDue:'Eslatma vaqti keldi', notifsEnabled:'Bildirishnomalar yoqildi', notifsBlocked:'Brauzer bildirishnomalarni bloklagan',
+    saveError:'Maʼlumotni saqlab boʻlmadi', loggedOut:'Tizimdan chiqildi'
+  }
+};
+function t(key){
+  try{ return I18N[state.settings.lang]?.[key] ?? I18N.en[key] ?? key; }catch(e){ return key; }
+}
+
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+    const key = el.getAttribute('data-i18n-ph');
+    el.setAttribute('placeholder', t(key));
+  });
+  document.documentElement.lang = state.settings.lang;
+  const gateLbl = document.getElementById('gateLangLabel');
+  if(gateLbl) gateLbl.textContent = state.settings.lang === 'en' ? 'EN → UZ' : 'UZ → EN';
+  renderSidebar();
+  renderBottomNav();
+  renderSettings();
+}
+
+/* =====================================================================================
+   TOASTS
+   ===================================================================================== */
+function toast(msg, kind){
+  const host = document.getElementById('toastHost');
+  if(!host) return;
+  const el = document.createElement('div');
+  el.className = 'toast' + (kind === 'danger' ? ' danger' : '');
+  el.innerHTML = `<span>${escapeHtml(msg)}</span>`;
+  host.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(20px)'; el.style.transition='.25s'; setTimeout(()=>el.remove(),260); }, 2600);
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
+/* =====================================================================================
+   THEME ENGINE
+   ===================================================================================== */
+const THEME_META = {
+  navy:{ bg:'#0A0F1E', accent:'#3B82F6' },
+  oled:{ bg:'#000000', accent:'#10B981' },
+  charcoal:{ bg:'#18171C', accent:'#A78BFA' },
+  slate:{ bg:'#151B26', accent:'#F59E0B' }
+};
+function applyTheme(){
+  const theme = THEME_META[state.settings.theme] ? state.settings.theme : 'navy';
+  document.documentElement.setAttribute('data-theme', theme);
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if(metaTheme) metaTheme.setAttribute('content', THEME_META[theme].bg);
+}
+
+/* =====================================================================================
+   AUTH / LOGIN GATEWAY
+   ===================================================================================== */
+function isLoggedIn(){
+  try{
+    return localStorage.getItem(SESSION_KEY) === '1' || sessionStorage.getItem(SESSION_KEY) === '1';
+  }catch(e){ return false; }
+}
+function setLoggedIn(remember){
+  try{
+    if(remember){ localStorage.setItem(SESSION_KEY,'1'); }
+    else{ sessionStorage.setItem(SESSION_KEY,'1'); }
+  }catch(e){ console.error(e); }
+}
+function clearLoggedIn(){
+  try{ localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); }catch(e){}
+}
+
+function attemptLogin(){
+  const idInput = document.getElementById('loginId');
+  const remember = document.getElementById('rememberMe');
+  const errorEl = document.getElementById('loginError');
+  const val = (idInput?.value || '').trim().toLowerCase();
+  const authorized = (state.auth.authorizedIds || []).map(x => String(x).trim().toLowerCase());
+  if(val && authorized.includes(val)){
+    setLoggedIn(!!remember?.checked);
+    errorEl?.classList.add('hidden');
+    showApp();
+  } else {
+    errorEl?.classList.remove('hidden');
+  }
+}
+
+function showApp(){
+  document.getElementById('loginGate')?.classList.add('hidden');
+  document.getElementById('appShell')?.classList.remove('hidden');
+  document.getElementById('appShell')?.classList.add('md:flex');
+  renderAll();
+}
+
+function logout(){
+  clearLoggedIn();
+  document.getElementById('appShell')?.classList.add('hidden');
+  document.getElementById('loginGate')?.classList.remove('hidden');
+  toast(t('loggedOut'));
+}
+
+/* =====================================================================================
+   NAVIGATION
+   ===================================================================================== */
+const NAV_ITEMS = [
+  { id:'dashboard', icon:'fa-solid fa-gauge-high', key:'dashTitle' },
+  { id:'tasks', icon:'fa-solid fa-list-check', key:'tasksTitle' },
+  { id:'projects', icon:'fa-solid fa-diagram-project', key:'projectsTitle' },
+  { id:'water', icon:'fa-solid fa-droplet', key:'waterTitle' },
+  { id:'reminders', icon:'fa-solid fa-bell', key:'remindersTitle' },
+  { id:'vault', icon:'fa-solid fa-key', key:'vaultTitle' },
+  { id:'settings', icon:'fa-solid fa-gear', key:'settingsTitle' }
+];
+let currentView = 'dashboard';
+
+function switchView(id){
+  currentView = id;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+id)?.classList.add('active');
+  window.scrollTo({ top:0, behavior:'smooth' });
+  renderSidebar();
+  renderBottomNav();
+  document.getElementById('mobileMenu')?.classList.add('hidden');
+}
+
+function renderSidebar(){
+  const nav = document.getElementById('sidebarNav');
+  if(!nav) return;
+  nav.innerHTML = NAV_ITEMS.map(item => `
+    <div class="nav-item ${currentView===item.id?'active':''}" data-nav="${item.id}">
+      <i class="${item.icon} w-4"></i>
+      <span>${t(item.key)}</span>
+    </div>
+  `).join('');
+  nav.querySelectorAll('[data-nav]').forEach(el=>{
+    el.addEventListener('click', ()=> switchView(el.getAttribute('data-nav')));
+  });
+}
+
+function renderBottomNav(){
+  const bar = document.getElementById('bottomNav');
+  if(!bar) return;
+  const mobileItems = NAV_ITEMS.filter(i => i.id !== 'settings').slice(0,5);
+  bar.innerHTML = mobileItems.map(item => `
+    <button class="bottom-item ${currentView===item.id?'active':''} flex flex-col items-center text-xs gap-1 px-2 py-1" data-nav="${item.id}">
+      <i class="${item.icon} text-lg"></i>
+    </button>
+  `).join('');
+  bar.querySelectorAll('[data-nav]').forEach(el=>{
+    el.addEventListener('click', ()=> switchView(el.getAttribute('data-nav')));
+  });
+}
+
+document.getElementById('mobileMenuBtn')?.addEventListener('click', ()=>{
+  const menu = document.getElementById('mobileMenu');
+  if(!menu) return;
+  const isHidden = menu.classList.contains('hidden');
+  if(isHidden){
+    menu.innerHTML = `
+      <div class="nav-item" data-nav="settings"><i class="fa-solid fa-gear w-4"></i><span>${t('settingsTitle')}</span></div>
+      <div class="nav-item" id="mobileLogout"><i class="fa-solid fa-arrow-right-from-bracket w-4"></i><span>${t('logout')}</span></div>
+    `;
+    menu.querySelector('[data-nav="settings"]')?.addEventListener('click', ()=> switchView('settings'));
+    menu.querySelector('#mobileLogout')?.addEventListener('click', logout);
+  }
+  menu.classList.toggle('hidden');
+});
+
+/* =====================================================================================
+   DASHBOARD
+   ===================================================================================== */
+function renderDashboard(){
+  const grid = document.getElementById('statGrid');
+  if(!grid) return;
+  const activeProjects = state.projects.length;
+  const incompleteTasks = state.tasks.filter(x=>!x.done).length;
+  const vaultCount = state.vault.length;
+  const waterPct = Math.min(100, Math.round((state.water.ml / Math.max(1,state.water.target)) * 100));
+
+  const stats = [
+    { label:t('statProjects'), value:activeProjects, icon:'fa-diagram-project' },
+    { label:t('statTasks'), value:incompleteTasks, icon:'fa-list-check' },
+    { label:t('statVault'), value:vaultCount, icon:'fa-key' },
+    { label:t('statWater'), value:waterPct+'%', icon:'fa-droplet' }
+  ];
+  grid.innerHTML = stats.map(s => `
+    <div class="card p-4 md:p-5">
+      <div class="flex items-center justify-between mb-3">
+        <i class="fa-solid ${s.icon} text-accent"></i>
+      </div>
+      <div class="font-display text-2xl font-bold">${s.value}</div>
+      <div class="text-dim text-xs mt-1">${s.label}</div>
+    </div>
+  `).join('');
+
+  const remHost = document.getElementById('dashReminders');
+  if(remHost){
+    const upcoming = [...state.reminders].sort((a,b)=> new Date(a.datetime)-new Date(b.datetime)).slice(0,4);
+    remHost.innerHTML = upcoming.length ? upcoming.map(r => `
+      <div class="flex items-center justify-between border-b border-token pb-2 last:border-0 last:pb-0">
+        <span class="truncate pr-2">${escapeHtml(r.title)}</span>
+        <span class="font-mono text-xs text-accent shrink-0">${countdownLabel(r.datetime)}</span>
+      </div>
+    `).join('') : `<p class="text-dim text-sm">${t('noReminders')}</p>`;
+  }
+
+  const projHost = document.getElementById('dashProjects');
+  if(projHost){
+    const list = state.projects.slice(0,4);
+    projHost.innerHTML = list.length ? list.map(p => {
+      const pct = phasePercent(p);
+      return `
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="truncate pr-2">${escapeHtml(p.name)}</span>
+          <span class="text-dim font-mono text-xs">${pct}%</span>
+        </div>
+        <div class="progress-track h-2"><div class="progress-fill ${pct>=100?'complete':''}" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('') : `<p class="text-dim text-sm">${t('noProjects')}</p>`;
+  }
+}
+
+/* =====================================================================================
+   TASKS MODULE
+   ===================================================================================== */
+let taskFilter = 'all';
+function renderTasks(){
+  const list = document.getElementById('taskList');
+  const empty = document.getElementById('taskEmpty');
+  if(!list) return;
+  document.querySelectorAll('.filter-btn').forEach(b=>{
+    b.style.borderColor = b.getAttribute('data-filter')===taskFilter ? 'var(--accent)' : 'var(--border)';
+    b.style.color = b.getAttribute('data-filter')===taskFilter ? 'var(--accent)' : '';
+  });
+  let items = state.tasks;
+  if(taskFilter==='active') items = items.filter(x=>!x.done);
+  if(taskFilter==='completed') items = items.filter(x=>x.done);
+
+  list.innerHTML = items.map(task => `
+    <div class="flex items-center gap-3 card-2 px-3 py-2.5">
+      <input type="checkbox" class="chk task-toggle" data-id="${task.id}" ${task.done?'checked':''}>
+      <span class="flex-1 text-sm ${task.done?'line-through text-dim':''}">${escapeHtml(task.text)}</span>
+      <button class="task-delete text-dim hover:text-red-400" data-id="${task.id}"><i class="fa-solid fa-trash"></i></button>
+    </div>
+  `).join('');
+  empty?.classList.toggle('hidden', items.length !== 0);
+
+  list.querySelectorAll('.task-toggle').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const task = state.tasks.find(x=>x.id===cb.getAttribute('data-id'));
+      if(task){ task.done = cb.checked; saveState(); renderTasks(); renderDashboard(); }
+    });
+  });
+  list.querySelectorAll('.task-delete').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.tasks = state.tasks.filter(x=>x.id!==btn.getAttribute('data-id'));
+      saveState(); renderTasks(); renderDashboard(); toast(t('taskRemoved'));
+    });
+  });
+}
+document.getElementById('taskAddBtn')?.addEventListener('click', addTaskFromInput);
+document.getElementById('taskInput')?.addEventListener('keydown', e=>{ if(e.key==='Enter') addTaskFromInput(); });
+function addTaskFromInput(){
+  const input = document.getElementById('taskInput');
+  const val = (input?.value || '').trim();
+  if(!val) return;
+  state.tasks.unshift({ id:uid(), text:val, done:false });
+  if(input) input.value='';
+  saveState(); renderTasks(); renderDashboard(); toast(t('taskAdded'));
+}
+document.querySelectorAll('.filter-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{ taskFilter = btn.getAttribute('data-filter'); renderTasks(); });
+});
+document.getElementById('clearCompletedBtn')?.addEventListener('click', ()=>{
+  state.tasks = state.tasks.filter(x=>!x.done);
+  saveState(); renderTasks(); renderDashboard();
+});
+
+/* =====================================================================================
+   PROJECTS MODULE
+   ===================================================================================== */
+let projectSearchTerm = '';
+function phasePercent(project){
+  if(!project.phases || !project.phases.length) return 0;
+  const done = project.phases.filter(p=>p.done).length;
+  return Math.round((done / project.phases.length) * 100);
+}
+function renderProjects(){
+  const list = document.getElementById('projectList');
+  const empty = document.getElementById('projectEmpty');
+  if(!list) return;
+  const filtered = state.projects.filter(p => p.name.toLowerCase().includes(projectSearchTerm.toLowerCase()));
+  list.innerHTML = filtered.map(project => {
+    const pct = phasePercent(project);
+    const complete = pct >= 100 && project.phases.length > 0;
+    return `
+    <div class="card p-4 md:p-5">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <h3 class="font-display font-semibold">${escapeHtml(project.name)}</h3>
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="text-xs px-2.5 py-1 rounded-full font-mono ${complete?'badge-complete':'badge-dev'}">
+            ${complete ? t('completed') : `${t('inDevelopment')} (${pct}%)`}
+          </span>
+          <button class="project-delete text-dim hover:text-red-400" data-id="${project.id}"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+      <div class="progress-track h-2.5 mb-4"><div class="progress-fill ${complete?'complete':''}" style="width:${pct}%"></div></div>
+      <div class="grid sm:grid-cols-2 gap-2">
+        ${project.phases.map(phase => `
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" class="chk phase-toggle" data-project="${project.id}" data-phase="${phase.id}" ${phase.done?'checked':''}>
+            <span class="${phase.done?'line-through text-dim':''}">${escapeHtml(phase.name)}</span>
+          </label>
+        `).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  empty?.classList.toggle('hidden', filtered.length !== 0 || projectSearchTerm !== '');
+
+  list.querySelectorAll('.phase-toggle').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const project = state.projects.find(x=>x.id===cb.getAttribute('data-project'));
+      const phase = project?.phases.find(x=>x.id===cb.getAttribute('data-phase'));
+      if(phase){ phase.done = cb.checked; saveState(); renderProjects(); renderDashboard(); }
+    });
+  });
+  list.querySelectorAll('.project-delete').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!confirm(t('confirmDeleteProject'))) return;
+      state.projects = state.projects.filter(x=>x.id!==btn.getAttribute('data-id'));
+      saveState(); renderProjects(); renderDashboard();
+    });
+  });
+}
+document.getElementById('addProjectBtn')?.addEventListener('click', ()=>{
+  const nameInput = document.getElementById('newProjectName');
+  const phasesInput = document.getElementById('newProjectPhases');
+  const name = (nameInput?.value || '').trim();
+  const phasesRaw = (phasesInput?.value || '').trim();
+  if(!name) return;
+  const phases = phasesRaw.split(',').map(p=>p.trim()).filter(Boolean).map(p=>({ id:uid(), name:p, done:false }));
+  state.projects.unshift({ id:uid(), name, phases });
+  if(nameInput) nameInput.value=''; if(phasesInput) phasesInput.value='';
+  saveState(); renderProjects(); renderDashboard(); toast(t('projectCreated'));
+});
+document.getElementById('projectSearch')?.addEventListener('input', e=>{
+  projectSearchTerm = e.target.value; renderProjects();
+});
+
+/* =====================================================================================
+   WATER MODULE
+   ===================================================================================== */
+function renderWater(){
+  const mlLabel = document.getElementById('waterMlLabel');
+  const targetLabel = document.getElementById('waterTargetLabel');
+  const gauge = document.getElementById('gaugeFg');
+  const targetInput = document.getElementById('waterTargetInput');
+  if(!mlLabel || !gauge) return;
+  const pct = Math.min(1, state.water.ml / Math.max(1,state.water.target));
+  const circumference = 2 * Math.PI * 78;
+  gauge.setAttribute('stroke-dasharray', circumference.toFixed(1));
+  gauge.setAttribute('stroke-dashoffset', (circumference * (1-pct)).toFixed(1));
+  mlLabel.textContent = state.water.ml;
+  if(targetLabel) targetLabel.textContent = `/ ${state.water.target} ml`;
+  if(targetInput && document.activeElement !== targetInput) targetInput.value = state.water.target;
+}
+document.querySelectorAll('.water-add').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const ml = Number(btn.getAttribute('data-ml')) || 0;
+    state.water.ml = Math.max(0, state.water.ml + ml);
+    state.water.lastDate = todayStr();
+    saveState(); renderWater(); renderDashboard();
+  });
+});
+document.getElementById('waterResetBtn')?.addEventListener('click', ()=>{
+  state.water.ml = 0; saveState(); renderWater(); renderDashboard();
+});
+document.getElementById('waterTargetInput')?.addEventListener('input', e=>{
+  const val = Number(e.target.value);
+  if(Number.isFinite(val) && val > 0){ state.water.target = val; saveState(); renderWater(); renderDashboard(); }
+});
+
+/* =====================================================================================
+   REMINDERS MODULE
+   ===================================================================================== */
+let reminderSearchTerm = '';
+function countdownLabel(datetime){
+  const target = new Date(datetime).getTime();
+  const now = Date.now();
+  const diff = target - now;
+  if(Number.isNaN(target)) return '';
+  if(diff <= 0) return t('overdue');
+  const mins = Math.floor(diff/60000);
+  const hours = Math.floor(mins/60);
+  const days = Math.floor(hours/24);
+  if(days >= 1) return `${days} ${days===1?t('dayLeft'):t('daysLeft')}`;
+  if(hours >= 1) return `${hours} ${t('hoursLeft')}`;
+  return `${Math.max(0,mins)} ${t('minsLeft')}`;
+}
+function renderReminders(){
+  const list = document.getElementById('reminderList');
+  const empty = document.getElementById('reminderEmpty');
+  if(!list) return;
+  const filtered = state.reminders
+    .filter(r => r.title.toLowerCase().includes(reminderSearchTerm.toLowerCase()))
+    .sort((a,b)=> new Date(a.datetime) - new Date(b.datetime));
+  list.innerHTML = filtered.map(r => {
+    const overdue = new Date(r.datetime).getTime() <= Date.now();
+    return `
+    <div class="card p-4 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="font-medium truncate">${escapeHtml(r.title)}</p>
+        <p class="text-dim text-xs font-mono">${new Date(r.datetime).toLocaleString()}</p>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <span class="text-xs font-mono px-2.5 py-1 rounded-full ${overdue?'badge-complete':'badge-dev'}" style="${overdue?'color:#F87171;background:rgba(248,113,113,.15)':''}">${countdownLabel(r.datetime)}</span>
+        <button class="reminder-delete text-dim hover:text-red-400" data-id="${r.id}"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+  empty?.classList.toggle('hidden', filtered.length !== 0);
+
+  list.querySelectorAll('.reminder-delete').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.reminders = state.reminders.filter(x=>x.id!==btn.getAttribute('data-id'));
+      saveState(); renderReminders(); renderDashboard();
+    });
+  });
+}
+document.getElementById('addReminderBtn')?.addEventListener('click', ()=>{
+  const titleInput = document.getElementById('reminderTitle');
+  const dateInput = document.getElementById('reminderDate');
+  const title = (titleInput?.value || '').trim();
+  const datetime = dateInput?.value;
+  if(!title || !datetime) return;
+  state.reminders.push({ id:uid(), title, datetime, notified:false });
+  if(titleInput) titleInput.value=''; if(dateInput) dateInput.value='';
+  saveState(); renderReminders(); renderDashboard(); toast(t('reminderAdded'));
+});
+document.getElementById('reminderSearch')?.addEventListener('input', e=>{
+  reminderSearchTerm = e.target.value; renderReminders();
+});
+document.getElementById('enableNotifsBtn')?.addEventListener('click', ()=>{
+  if(!('Notification' in window)){ toast(t('notifsBlocked'),'danger'); return; }
+  Notification.requestPermission().then(perm=>{
+    toast(perm === 'granted' ? t('notifsEnabled') : t('notifsBlocked'), perm==='granted'?undefined:'danger');
+  }).catch(()=>{});
+});
+
+/* Live reminder checker: fires a browser Notification (if permitted) or an in-app
+   toast when a reminder's target time is reached while the app is open. */
+setInterval(()=>{
+  let changed = false;
+  state.reminders.forEach(r=>{
+    if(!r.notified && new Date(r.datetime).getTime() <= Date.now()){
+      r.notified = true; changed = true;
+      const msg = `${t('reminderDue')}: ${r.title}`;
+      if('Notification' in window && Notification.permission === 'granted'){
+        try{ new Notification('KLIN', { body:msg }); }catch(e){ toast(msg); }
+      } else {
+        toast(msg);
+      }
+    }
+  });
+  if(changed) saveState();
+  if(currentView==='reminders') renderReminders();
+  if(currentView==='dashboard') renderDashboard();
+}, 15000);
+
+/* =====================================================================================
+   VAULT & NOTES MODULE
+   ===================================================================================== */
+let vaultSearchTerm = '';
+function renderVault(){
+  const body = document.getElementById('vaultTableBody');
+  const empty = document.getElementById('vaultEmpty');
+  if(!body) return;
+  const filtered = state.vault.filter(v => v.name.toLowerCase().includes(vaultSearchTerm.toLowerCase()));
+  body.innerHTML = filtered.map(v => `
+    <tr class="border-b border-token last:border-0">
+      <td class="py-2 pr-2">${escapeHtml(v.name)}</td>
+      <td class="py-2 pr-2 font-mono text-dim">${'•'.repeat(Math.min(10, v.secret.length || 6))}</td>
+      <td class="py-2 text-right whitespace-nowrap">
+        <button class="vault-copy btn-ghost px-2 py-1 rounded-lg text-xs mr-1" data-id="${v.id}"><i class="fa-regular fa-copy"></i></button>
+        <button class="vault-delete btn-ghost px-2 py-1 rounded-lg text-xs" data-id="${v.id}"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>
+  `).join('');
+  empty?.classList.toggle('hidden', filtered.length !== 0);
+
+  body.querySelectorAll('.vault-copy').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const item = state.vault.find(x=>x.id===btn.getAttribute('data-id'));
+      if(!item) return;
+      try{
+        await navigator.clipboard.writeText(item.secret);
+        toast(t('copied'));
+      }catch(e){
+        // Fallback for environments without Clipboard API permission
+        const ta = document.createElement('textarea');
+        ta.value = item.secret; document.body.appendChild(ta); ta.select();
+        try{ document.execCommand('copy'); toast(t('copied')); }catch(e2){}
+        ta.remove();
+      }
+    });
+  });
+  body.querySelectorAll('.vault-delete').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.vault = state.vault.filter(x=>x.id!==btn.getAttribute('data-id'));
+      saveState(); renderVault(); renderDashboard();
+    });
+  });
+}
+document.getElementById('addVaultBtn')?.addEventListener('click', ()=>{
+  const nameInput = document.getElementById('vaultName');
+  const secretInput = document.getElementById('vaultSecret');
+  const name = (nameInput?.value || '').trim();
+  const secret = (secretInput?.value || '').trim();
+  if(!name || !secret) return;
+  state.vault.push({ id:uid(), name, secret });
+  if(nameInput) nameInput.value=''; if(secretInput) secretInput.value='';
+  saveState(); renderVault(); renderDashboard(); toast(t('vaultAdded'));
+});
+document.getElementById('vaultSearch')?.addEventListener('input', e=>{
+  vaultSearchTerm = e.target.value; renderVault();
+});
+
+let notesSaveTimer = null;
+document.getElementById('notesArea')?.addEventListener('input', e=>{
+  state.notes = e.target.value;
+  clearTimeout(notesSaveTimer);
+  notesSaveTimer = setTimeout(()=>{
+    saveState();
+    const lbl = document.getElementById('notesSavedLabel');
+    if(lbl){ lbl.textContent = t('notesSaved') + ' · ' + new Date().toLocaleTimeString(); }
+  }, 300);
+});
+function renderNotes(){
+  const area = document.getElementById('notesArea');
+  if(area && document.activeElement !== area) area.value = state.notes;
+}
+
+/* =====================================================================================
+   SETTINGS MODULE — themes, language, auth IDs, export/import/wipe
+   ===================================================================================== */
+function renderSettings(){
+  const swatchHost = document.getElementById('themeSwatches');
+  if(swatchHost){
+    swatchHost.innerHTML = Object.entries(THEME_META).map(([key,meta]) => `
+      <button class="theme-swatch ${state.settings.theme===key?'active':''}" style="background:${meta.bg}; box-shadow: inset 0 0 0 2px ${meta.accent}" data-theme="${key}" title="${key}"></button>
+    `).join('');
+    swatchHost.querySelectorAll('[data-theme]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        state.settings.theme = btn.getAttribute('data-theme');
+        saveState(); applyTheme(); renderSettings();
+      });
+    });
+  }
+  document.querySelectorAll('.lang-btn').forEach(btn=>{
+    const active = btn.getAttribute('data-lang') === state.settings.lang;
+    btn.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+    btn.style.color = active ? 'var(--accent)' : '';
+  });
+  const idHost = document.getElementById('authIdList');
+  if(idHost){
+    idHost.innerHTML = state.auth.authorizedIds.map(id => `
+      <span class="card-2 px-3 py-1.5 rounded-full text-sm flex items-center gap-2">
+        ${escapeHtml(id)}
+        <button class="auth-id-remove text-dim hover:text-red-400" data-id="${escapeHtml(id)}"><i class="fa-solid fa-xmark"></i></button>
+      </span>
+    `).join('');
+    idHost.querySelectorAll('.auth-id-remove').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        if(state.auth.authorizedIds.length <= 1) return; // always keep at least one ID
+        state.auth.authorizedIds = state.auth.authorizedIds.filter(x=>x!==btn.getAttribute('data-id'));
+        saveState(); renderSettings(); toast(t('idRemoved'));
+      });
+    });
+  }
+}
+document.querySelectorAll('.lang-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    state.settings.lang = btn.getAttribute('data-lang');
+    saveState(); applyI18n(); renderAll();
+  });
+});
+document.getElementById('gateLangToggle')?.addEventListener('click', ()=>{
+  state.settings.lang = state.settings.lang === 'en' ? 'uz' : 'en';
+  saveState(); applyI18n();
+});
+document.getElementById('addAuthIdBtn')?.addEventListener('click', ()=>{
+  const input = document.getElementById('newAuthId');
+  const val = (input?.value || '').trim();
+  if(!val) return;
+  if(state.auth.authorizedIds.map(x=>x.toLowerCase()).includes(val.toLowerCase())){
+    toast(t('idExists'),'danger'); return;
+  }
+  state.auth.authorizedIds.push(val);
+  if(input) input.value='';
+  saveState(); renderSettings(); toast(t('idAdded'));
+});
+
+/* ---------------------------- Export / Import / Wipe ---------------------------- */
+document.getElementById('exportBtn')?.addEventListener('click', ()=>{
+  try{
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `klin-backup-${todayStr()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast(t('exported'));
+  }catch(e){ console.error(e); toast(t('saveError'),'danger'); }
+});
+document.getElementById('importBtn')?.addEventListener('click', ()=> document.getElementById('importFile')?.click());
+document.getElementById('importFile')?.addEventListener('change', e=>{
+  const file = e.target.files?.[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const parsed = JSON.parse(reader.result);
+      // Schema validation: ensure the required top-level keys exist before overwriting
+      const required = ['auth','settings','tasks','projects','vault','notes','water','reminders'];
+      const valid = required.every(k => Object.prototype.hasOwnProperty.call(parsed, k));
+      if(!valid) throw new Error('Missing required keys');
+      state = loadStateFromObject(parsed);
+      saveState();
+      applyTheme(); applyI18n(); renderAll();
+      toast(t('imported'));
+    }catch(err){
+      console.error('KLIN import error:', err);
+      toast(t('importFailed'),'danger');
+    }
+    e.target.value = '';
+  };
+  reader.onerror = () => { toast(t('importFailed'),'danger'); };
+  reader.readAsText(file);
+});
+function loadStateFromObject(parsed){
+  const base = defaultState();
+  return {
+    auth: { authorizedIds: Array.isArray(parsed?.auth?.authorizedIds) && parsed.auth.authorizedIds.length ? parsed.auth.authorizedIds : base.auth.authorizedIds },
+    settings: { theme: parsed?.settings?.theme || base.settings.theme, lang: parsed?.settings?.lang || base.settings.lang },
+    tasks: Array.isArray(parsed?.tasks) ? parsed.tasks : [],
+    projects: Array.isArray(parsed?.projects) ? parsed.projects : [],
+    vault: Array.isArray(parsed?.vault) ? parsed.vault : [],
+    notes: typeof parsed?.notes === 'string' ? parsed.notes : '',
+    water: {
+      ml: Number.isFinite(parsed?.water?.ml) ? parsed.water.ml : 0,
+      target: Number.isFinite(parsed?.water?.target) ? parsed.water.target : 2000,
+      lastDate: parsed?.water?.lastDate || todayStr()
+    },
+    reminders: Array.isArray(parsed?.reminders) ? parsed.reminders : []
+  };
+}
+document.getElementById('wipeBtn')?.addEventListener('click', ()=>{
+  if(!confirm(t('confirmWipe'))) return;
+  state = defaultState();
+  saveState(); applyTheme(); applyI18n(); renderAll();
+  toast(t('wiped'));
+});
+
+/* =====================================================================================
+   CLOCK
+   ===================================================================================== */
+function tickClock(){
+  const el = document.getElementById('clockLine');
+  if(el) el.textContent = new Date().toLocaleTimeString();
+}
+setInterval(tickClock, 1000);
+
+/* =====================================================================================
+   PWA: Inline Manifest + Icon + Service Worker Registration
+   ===================================================================================== */
+function setupPWA(){
+  // Build a manifest.json on the fly and attach it via a Blob URL so the whole
+  // experience still ships as a single HTML file.
+  const manifest = {
+    name: 'KLIN — Personal Command Center',
+    short_name: 'KLIN',
+    start_url: './index.html',
+    display: 'standalone',
+    background_color: THEME_META[state.settings.theme]?.bg || '#0A0F1E',
+    theme_color: THEME_META[state.settings.theme]?.bg || '#0A0F1E',
+    icons: [{ src: iconDataUrl(192), sizes:'192x192', type:'image/png' }, { src: iconDataUrl(512), sizes:'512x512', type:'image/png' }]
+  };
+  try{
+    const blob = new Blob([JSON.stringify(manifest)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    document.getElementById('manifestLink')?.setAttribute('href', url);
+  }catch(e){ console.error('KLIN: manifest generation failed', e); }
+
+  const icon = iconDataUrl(180);
+  document.getElementById('appleTouchIcon')?.setAttribute('href', icon);
+
+  // Register the companion service worker (sw.js) for offline caching.
+  // sw.js must sit alongside index.html in the deployed GitHub Pages repo.
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(err=>{
+        console.warn('KLIN: service worker registration skipped/failed', err);
+      });
+    });
+  }
+}
+
+/* Draws a simple branded icon on a canvas and returns it as a PNG data URL,
+   so no external image asset is required for Add-to-Home-Screen icons. */
+function iconDataUrl(size){
+  try{
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const accent = THEME_META[state.settings.theme]?.accent || '#3B82F6';
+    const bg = THEME_META[state.settings.theme]?.bg || '#0A0F1E';
+    ctx.fillStyle = bg; ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(size/2, size/2, size*0.22, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = accent; ctx.lineWidth = size*0.045;
+    ctx.beginPath(); ctx.arc(size/2, size/2, size*0.36, 0, Math.PI*2); ctx.stroke();
+    return canvas.toDataURL('image/png');
+  }catch(e){ return ''; }
+}
+
+/* =====================================================================================
+   MASTER RENDER + INIT
+   ===================================================================================== */
+function renderAll(){
+  renderDashboard();
+  renderTasks();
+  renderProjects();
+  renderWater();
+  renderReminders();
+  renderVault();
+  renderNotes();
+  renderSettings();
+  renderSidebar();
+  renderBottomNav();
+}
+
+document.getElementById('loginBtn')?.addEventListener('click', attemptLogin);
+document.getElementById('loginId')?.addEventListener('keydown', e=>{ if(e.key==='Enter') attemptLogin(); });
+document.getElementById('logoutBtn')?.addEventListener('click', logout);
+
+(function init(){
+  applyTheme();
+  applyI18n();
+  setupPWA();
+  tickClock();
+  switchView('dashboard');
+  if(isLoggedIn()){ showApp(); }
+})();
+</script>
+</body>
+</html>
